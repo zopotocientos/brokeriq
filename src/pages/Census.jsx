@@ -58,6 +58,8 @@ export default function Census() {
   const [sortField, setSortField] = useState("last_name");
   const [sortDir, setSortDir] = useState("asc");
   const [expandedEIDs, setExpandedEIDs] = useState({});
+  const [clearConfirm, setClearConfirm] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -143,6 +145,14 @@ export default function Census() {
     fetchData();
   }
 
+  async function confirmClear() {
+    setClearing(true);
+    await supabase.from("census").delete().eq("group_id", id);
+    setClearing(false);
+    setClearConfirm(false);
+    fetchData();
+  }
+
   function SortIcon({ field }) {
     if (sortField !== field) return <span style={{ opacity: 0.3, marginLeft: "4px", fontSize: "10px" }}>v</span>;
     return <span style={{ marginLeft: "4px", fontSize: "10px", color: "#1B4F8A" }}>{sortDir === "asc" ? "^" : "v"}</span>;
@@ -192,6 +202,11 @@ export default function Census() {
             </div>
           </div>
           <div style={{ display: "flex", gap: "10px" }}>
+            <button onClick={() => setClearConfirm(true)} style={{ ...secondaryBtn, color: "#EF4444", borderColor: "#FCA5A5" }}
+              onMouseEnter={e => e.currentTarget.style.background = "#FEF2F2"}
+              onMouseLeave={e => e.currentTarget.style.background = "white"}>
+              Clear Census
+            </button>
             <button onClick={() => setShowImport(true)} style={secondaryBtn}>Import CSV</button>
             <button onClick={() => { setEditingMember(null); setShowAddModal(true); }}
               style={primaryBtn}
@@ -240,7 +255,12 @@ export default function Census() {
             </p>
             {!search && (
               <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
-                <button onClick={() => setShowImport(true)} style={secondaryBtn}>Import CSV</button>
+                <button onClick={() => setClearConfirm(true)} style={{ ...secondaryBtn, color: "#EF4444", borderColor: "#FCA5A5" }}
+              onMouseEnter={e => e.currentTarget.style.background = "#FEF2F2"}
+              onMouseLeave={e => e.currentTarget.style.background = "white"}>
+              Clear Census
+            </button>
+            <button onClick={() => setShowImport(true)} style={secondaryBtn}>Import CSV</button>
                 <button onClick={() => setShowAddModal(true)} style={primaryBtn}
                   onMouseEnter={e => e.currentTarget.style.background = "#163d6e"}
                   onMouseLeave={e => e.currentTarget.style.background = "#1B4F8A"}>
@@ -424,6 +444,36 @@ export default function Census() {
           </div>
         </div>
       )}
+          {clearConfirm && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 50,
+          background: "rgba(0,0,0,0.4)", backdropFilter: "blur(2px)",
+          display: "flex", alignItems: "center", justifyContent: "center", padding: "16px",
+        }}>
+          <div style={{
+            background: "white", borderRadius: "12px", padding: "28px",
+            maxWidth: "400px", width: "100%", boxShadow: "0 20px 48px rgba(0,0,0,0.2)",
+          }}>
+            <h3 style={{ margin: "0 0 8px", fontSize: "18px", fontWeight: "600", color: "#111827" }}>
+              Clear entire census?
+            </h3>
+            <p style={{ margin: "0 0 24px", color: "#6B7280", fontSize: "14px", lineHeight: 1.6 }}>
+              This will permanently remove all {allMembers.length} members from {group.employer_name}. This cannot be undone.
+            </p>
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+              <button onClick={() => setClearConfirm(false)} style={secondaryBtn}>Cancel</button>
+              <button onClick={confirmClear} disabled={clearing} style={{
+                padding: "9px 20px", borderRadius: "8px", border: "none",
+                background: clearing ? "#FCA5A5" : "#EF4444", color: "white",
+                fontSize: "14px", fontWeight: "600",
+                cursor: clearing ? "not-allowed" : "pointer", fontFamily: "inherit",
+              }}>
+                {clearing ? "Clearing..." : "Clear All " + allMembers.length + " Members"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }
@@ -453,3 +503,7 @@ function ActionBtn({ label, onClick, danger }) {
 const crumbBtn = { background: "none", border: "none", cursor: "pointer", color: "#6B7280", fontSize: "13px", padding: 0, fontFamily: "inherit" };
 const secondaryBtn = { padding: "9px 18px", borderRadius: "8px", border: "1px solid #D1D5DB", background: "white", color: "#374151", fontSize: "14px", fontWeight: "500", cursor: "pointer", fontFamily: "inherit" };
 const primaryBtn = { padding: "9px 18px", borderRadius: "8px", border: "none", background: "#1B4F8A", color: "white", fontSize: "14px", fontWeight: "600", cursor: "pointer", fontFamily: "inherit" };
+
+
+
+
