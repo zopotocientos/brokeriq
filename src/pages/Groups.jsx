@@ -1,4 +1,4 @@
-// src/pages/Groups.jsx
+ï»¿// src/pages/Groups.jsx
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -75,7 +75,7 @@ export default function Groups() {
   }
 
   function formatDate(str) {
-    if (!str) return '—';
+    if (!str) return 'â€”';
     const [y, m, d] = str.split('-');
     return m + '/' + d + '/' + y;
   }
@@ -122,14 +122,11 @@ export default function Groups() {
 
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
         <div style={{ marginBottom: '1.25rem', position: 'relative', maxWidth: '360px' }}>
-          <span style={{
-            position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)',
-            color: 'var(--text-muted)', pointerEvents: 'none',
-          }}>??</span>
+         
           <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search by name, county, or ZIP…"
+            placeholder="Search by name, county, or ZIPâ€¦"
             style={{
-              width: '100%', padding: '0.5625rem 0.75rem 0.5625rem 2.25rem',
+              width: '100%', padding: '0.5625rem 0.75rem',
               border: '1.5px solid var(--border)', borderRadius: '10px',
               background: 'var(--surface)', color: 'var(--text-primary)',
               fontSize: '0.9375rem', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
@@ -138,7 +135,7 @@ export default function Groups() {
 
         {loading ? (
           <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>
-            Loading groups…
+            Loading groupsâ€¦
           </div>
         ) : filtered.length === 0 ? (
           <EmptyState search={search} onNew={openCreate} />
@@ -193,7 +190,7 @@ export default function Groups() {
                             {g.regions.region_name?.split(' ').slice(0, 2).join(' ')}
                           </span>
                         </span>
-                      ) : '—'}
+                      ) : 'â€”'}
                     </td>
                     <td style={{ padding: '0.875rem 1rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{formatDate(g.effective_date)}</td>
                     <td style={{ padding: '0.875rem 1rem' }} onClick={e => e.stopPropagation()}>
@@ -250,7 +247,7 @@ export default function Groups() {
                 fontSize: '0.9375rem', fontWeight: 600,
                 cursor: deleting ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
               }}>
-                {deleting ? 'Deleting…' : 'Delete Group'}
+                {deleting ? 'Deletingâ€¦' : 'Delete Group'}
               </button>
             </div>
           </div>
@@ -280,7 +277,7 @@ function EmptyState({ search, onNew }) {
       background: 'var(--surface)', border: '1px solid var(--border)',
       borderRadius: '12px', padding: '4rem 2rem', textAlign: 'center',
     }}>
-      <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>{search ? '??' : '??'}</div>
+      <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '1rem' }}>{search ? 'No Results' : 'No Groups'}</div>
       <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.125rem', fontWeight: 600 }}>
         {search ? 'No groups match your search' : 'No groups yet'}
       </h3>
@@ -297,3 +294,4 @@ function EmptyState({ search, onNew }) {
     </div>
   );
 }
+

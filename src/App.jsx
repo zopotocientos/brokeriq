@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Groups from './pages/Groups';
+import Census from './pages/Census';
 
 
 
@@ -30,7 +31,7 @@ function AppRoutes() {
       />
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="/groups" element={<ProtectedRoute><Groups /></ProtectedRoute>} />
-<Route path="/groups/:id/census" element={<ProtectedRoute><div style={{padding:'2rem'}}>Census coming soon</div></ProtectedRoute>} />
+<Route path="/groups/:id/census" element={<ProtectedRoute><Census /></ProtectedRoute>} />
     </Routes>
   )
 }
