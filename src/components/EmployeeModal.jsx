@@ -17,19 +17,15 @@ const GENDERS = [
 ];
 
 const RELATIONSHIPS = [
-  "Employee", "Spouse", "Domestic Partner",
+  "Employee", "Spouse", "Spouse-Ex", "Domestic Partner",
   "Child", "Child-Legal Guardian", "Child-Adopted",
   "Child-Step", "Child-Domestic Partner",
 ];
 
 const INITIAL_FORM = {
-  first_name: "",
-  last_name: "",
-  date_of_birth: "",
-  gender: "",
-  coverage_tier: "EE",
-  relationship: "Employee",
-  zip_code: "",
+  eid: "", first_name: "", last_name: "",
+  date_of_birth: "", gender: "", coverage_tier: "EE",
+  relationship: "Employee", zip_code: "",
 };
 
 export default function EmployeeModal({ employee, groupZip, groupId, onClose, onSaved }) {
@@ -40,6 +36,7 @@ export default function EmployeeModal({ employee, groupZip, groupId, onClose, on
   useEffect(() => {
     if (employee) {
       setForm({
+        eid: employee.eid || "",
         first_name: employee.first_name || "",
         last_name: employee.last_name || "",
         date_of_birth: employee.date_of_birth || "",
@@ -84,6 +81,7 @@ export default function EmployeeModal({ employee, groupZip, groupId, onClose, on
 
     const payload = {
       group_id: groupId,
+      eid: form.eid.trim() || null,
       first_name: form.first_name.trim(),
       last_name: form.last_name.trim(),
       date_of_birth: form.date_of_birth,
@@ -101,11 +99,8 @@ export default function EmployeeModal({ employee, groupZip, groupId, onClose, on
     }
 
     setSaving(false);
-    if (result.error) {
-      setErrors({ submit: result.error.message });
-    } else {
-      onSaved(result.data);
-    }
+    if (result.error) { setErrors({ submit: result.error.message }); }
+    else { onSaved(result.data); }
   }
 
   function handleBackdrop(e) {
@@ -129,13 +124,15 @@ export default function EmployeeModal({ employee, groupZip, groupId, onClose, on
     }}>
       <div style={{
         background: "white", borderRadius: "12px",
-        width: "100%", maxWidth: "480px",
+        width: "100%", maxWidth: "520px",
+        maxHeight: "90vh", display: "flex", flexDirection: "column",
         boxShadow: "0 20px 48px rgba(0,0,0,0.2)", overflow: "hidden",
       }}>
         {/* Header */}
         <div style={{
           padding: "20px 24px 16px", borderBottom: "1px solid #E5E7EB",
           display: "flex", alignItems: "center", justifyContent: "space-between",
+          flexShrink: 0,
         }}>
           <div>
             <h2 style={{ margin: 0, fontSize: "18px", fontWeight: "700", color: "#111827" }}>
@@ -150,14 +147,23 @@ export default function EmployeeModal({ employee, groupZip, groupId, onClose, on
             color: "#9CA3AF", fontSize: "20px", padding: "4px", borderRadius: "6px",
           }}
             onMouseEnter={e => e.currentTarget.style.color = "#374151"}
-            onMouseLeave={e => e.currentTarget.style.color = "#9CA3AF"}
-          >X</button>
+            onMouseLeave={e => e.currentTarget.style.color = "#9CA3AF"}>X</button>
         </div>
 
-        {/* Body */}
-        <div style={{ padding: "20px 24px" }}>
+        {/* Scrollable body */}
+        <div style={{ padding: "20px 24px", overflowY: "auto", flex: 1 }}>
           <div style={{ display: "grid", gap: "14px" }}>
 
+            {/* EID */}
+            <Field label="Employee ID (EID)">
+              <input name="eid" value={form.eid} onChange={handleChange}
+                placeholder="e.g. EM6JQX — leave blank to auto-assign"
+                style={inputStyle(false)}
+                onFocus={e => e.target.style.borderColor = "#1B4F8A"}
+                onBlur={e => e.target.style.borderColor = "#D1D5DB"} />
+            </Field>
+
+            {/* Name */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
               <Field label="First Name" error={errors.first_name} required>
                 <input name="first_name" value={form.first_name} onChange={handleChange}
@@ -173,6 +179,7 @@ export default function EmployeeModal({ employee, groupZip, groupId, onClose, on
               </Field>
             </div>
 
+            {/* DOB + Gender */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
               <Field label="Date of Birth" error={errors.date_of_birth} required>
                 <input type="date" name="date_of_birth" value={form.date_of_birth}
@@ -190,24 +197,17 @@ export default function EmployeeModal({ employee, groupZip, groupId, onClose, on
               </Field>
             </div>
 
+            {/* Relationship */}
             <Field label="Relationship" error={errors.relationship} required>
-              <div style={{ display: "flex", gap: "8px" }}>
-                {RELATIONSHIPS.map(r => (
-                  <button key={r} type="button" onClick={() => {
-                    setForm(prev => ({ ...prev, relationship: r }));
-                    if (errors.relationship) setErrors(prev => ({ ...prev, relationship: null }));
-                  }} style={{
-                    flex: 1, padding: "8px", borderRadius: "8px",
-                    border: "1px solid " + (form.relationship === r ? "#1B4F8A" : "#D1D5DB"),
-                    background: form.relationship === r ? "#EFF6FF" : "white",
-                    color: form.relationship === r ? "#1B4F8A" : "#374151",
-                    fontSize: "13px", fontWeight: form.relationship === r ? 600 : 400,
-                    cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
-                  }}>{r}</button>
-                ))}
-              </div>
+              <select name="relationship" value={form.relationship} onChange={handleChange}
+                style={inputStyle(errors.relationship)}
+                onFocus={e => e.target.style.borderColor = "#1B4F8A"}
+                onBlur={e => e.target.style.borderColor = errors.relationship ? "#EF4444" : "#D1D5DB"}>
+                {RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
             </Field>
 
+            {/* Coverage Tier */}
             <Field label="Coverage Tier" error={errors.coverage_tier} required>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
                 {TIERS.map(t => (
@@ -226,6 +226,7 @@ export default function EmployeeModal({ employee, groupZip, groupId, onClose, on
               </div>
             </Field>
 
+            {/* ZIP */}
             <Field label="ZIP Code (optional — any state accepted)" error={errors.zip_code}>
               <input name="zip_code" value={form.zip_code} onChange={handleChange}
                 placeholder={"Leave blank to use group ZIP (" + (groupZip || "") + ")"}
@@ -237,8 +238,7 @@ export default function EmployeeModal({ employee, groupZip, groupId, onClose, on
             {errors.submit && (
               <div style={{
                 background: "#FEE2E2", border: "1px solid #FCA5A5",
-                borderRadius: "8px", padding: "12px 16px",
-                color: "#991B1B", fontSize: "14px",
+                borderRadius: "8px", padding: "12px 16px", color: "#991B1B", fontSize: "14px",
               }}>{errors.submit}</div>
             )}
           </div>
@@ -248,18 +248,17 @@ export default function EmployeeModal({ employee, groupZip, groupId, onClose, on
         <div style={{
           padding: "16px 24px", borderTop: "1px solid #E5E7EB",
           display: "flex", justifyContent: "flex-end", gap: "12px",
-          background: "#F9FAFB",
+          background: "#F9FAFB", flexShrink: 0,
         }}>
           <button onClick={onClose} style={{
-            padding: "9px 20px", borderRadius: "8px",
-            border: "1px solid #D1D5DB", background: "transparent",
-            color: "#374151", fontSize: "14px", fontWeight: "500",
-            cursor: "pointer", fontFamily: "inherit",
+            padding: "9px 20px", borderRadius: "8px", border: "1px solid #D1D5DB",
+            background: "transparent", color: "#374151", fontSize: "14px",
+            fontWeight: "500", cursor: "pointer", fontFamily: "inherit",
           }}>Cancel</button>
           <button onClick={handleSubmit} disabled={saving} style={{
             padding: "9px 20px", borderRadius: "8px", border: "none",
-            background: saving ? "#93C5FD" : "#1B4F8A",
-            color: "white", fontSize: "14px", fontWeight: "600",
+            background: saving ? "#93C5FD" : "#1B4F8A", color: "white",
+            fontSize: "14px", fontWeight: "600",
             cursor: saving ? "not-allowed" : "pointer", fontFamily: "inherit",
           }}>
             {saving ? "Saving..." : isEditing ? "Save Changes" : "Add Member"}
@@ -281,4 +280,3 @@ function Field({ label, children, error, required }) {
     </div>
   );
 }
-

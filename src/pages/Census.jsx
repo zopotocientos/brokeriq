@@ -6,20 +6,25 @@ import EmployeeModal from "../components/EmployeeModal";
 import CensusImport from "../components/CensusImport";
 import Layout from "../components/Layout";
 
-const TIER_LABELS = {
-  "EE": "EE Only",
-  "EE+SP": "EE + Spouse",
-  "EE+CH": "EE + Child(ren)",
-  "EE+FAM": "EE + Family",
-};
-
+const TIER_LABELS = { "EE": "EE Only", "EE+SP": "EE + Spouse", "EE+CH": "EE + Child(ren)", "EE+FAM": "EE + Family" };
 const TIER_ORDER = ["EE", "EE+SP", "EE+CH", "EE+FAM"];
-
 const TIER_COLORS = {
   "EE":     { bg: "#EFF6FF", color: "#1D4ED8" },
   "EE+SP":  { bg: "#F0FDF4", color: "#16A34A" },
   "EE+CH":  { bg: "#FEFCE8", color: "#A16207" },
   "EE+FAM": { bg: "#FDF4FF", color: "#9333EA" },
+};
+
+const REL_COLORS = {
+  "Employee":              { bg: "#EFF6FF", color: "#1D4ED8" },
+  "Spouse":                { bg: "#F0FDF4", color: "#16A34A" },
+  "Spouse-Ex":             { bg: "#FEF3C7", color: "#92400E" },
+  "Domestic Partner":      { bg: "#F0FDF4", color: "#16A34A" },
+  "Child":                 { bg: "#FDF4FF", color: "#9333EA" },
+  "Child-Legal Guardian":  { bg: "#FDF4FF", color: "#9333EA" },
+  "Child-Adopted":         { bg: "#FDF4FF", color: "#9333EA" },
+  "Child-Step":            { bg: "#FDF4FF", color: "#9333EA" },
+  "Child-Domestic Partner":{ bg: "#FDF4FF", color: "#9333EA" },
 };
 
 function calcAge(dob) {
@@ -42,33 +47,45 @@ export default function Census() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [group, setGroup] = useState(null);
-  const [employees, setEmployees] = useState([]);
+  const [allMembers, setAllMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [editingEmployee, setEditingEmployee] = useState(null);
+  const [editingMember, setEditingMember] = useState(null);
   const [showImport, setShowImport] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState("last_name");
   const [sortDir, setSortDir] = useState("asc");
+  const [expandedEIDs, setExpandedEIDs] = useState({});
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [groupRes, empRes] = await Promise.all([
+    const [groupRes, memberRes] = await Promise.all([
       supabase.from("groups").select("id, employer_name, zip_code, county, region_number, effective_date").eq("id", id).single(),
       supabase.from("census").select("*").eq("group_id", id).order("last_name", { ascending: true }),
     ]);
     if (groupRes.data) setGroup(groupRes.data);
-    if (!empRes.error) setEmployees(empRes.data || []);
+    if (!memberRes.error) setAllMembers(memberRes.data || []);
     setLoading(false);
   }, [id]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Split employees and dependents
+  const employees = allMembers.filter(m => m.relationship === "Employee");
+  const dependents = allMembers.filter(m => m.relationship !== "Employee");
+
+  // Group dependents by EID
+  const dependentsByEID = dependents.reduce((acc, d) => {
+    const key = d.eid || "__no_eid__";
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(d);
+    return acc;
+  }, {});
+
   const summary = TIER_ORDER.map(tier => ({
-    tier,
-    label: TIER_LABELS[tier],
+    tier, label: TIER_LABELS[tier],
     count: employees.filter(e => e.coverage_tier === tier).length,
   }));
 
@@ -81,12 +98,17 @@ export default function Census() {
     else { setSortField(field); setSortDir("asc"); }
   }
 
-  const filtered = employees
+  function toggleExpand(eid) {
+    setExpandedEIDs(prev => ({ ...prev, [eid]: !prev[eid] }));
+  }
+
+  const filteredEmployees = employees
     .filter(e => {
       const q = search.toLowerCase();
       return (
         e.first_name?.toLowerCase().includes(q) ||
         e.last_name?.toLowerCase().includes(q) ||
+        e.eid?.toLowerCase().includes(q) ||
         TIER_LABELS[e.coverage_tier]?.toLowerCase().includes(q)
       );
     })
@@ -110,7 +132,12 @@ export default function Census() {
   async function confirmDelete() {
     if (!deleteTarget) return;
     setDeleting(true);
-    await supabase.from("census").delete().eq("id", deleteTarget.id);
+    // If deleting an employee, also delete all dependents with same EID
+    if (deleteTarget.relationship === "Employee" && deleteTarget.eid) {
+      await supabase.from("census").delete().eq("group_id", id).eq("eid", deleteTarget.eid);
+    } else {
+      await supabase.from("census").delete().eq("id", deleteTarget.id);
+    }
     setDeleting(false);
     setDeleteTarget(null);
     fetchData();
@@ -157,11 +184,7 @@ export default function Census() {
             <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "center" }}>
               <span style={{ fontSize: "14px", color: "#6B7280" }}>{group.county} County</span>
               {group.region_number && (
-                <span style={{
-                  background: "#EFF6FF", color: "#1B4F8A",
-                  borderRadius: "5px", padding: "2px 8px",
-                  fontSize: "13px", fontWeight: "600",
-                }}>
+                <span style={{ background: "#EFF6FF", color: "#1B4F8A", borderRadius: "5px", padding: "2px 8px", fontSize: "13px", fontWeight: "600" }}>
                   Region {group.region_number}
                 </span>
               )}
@@ -169,16 +192,12 @@ export default function Census() {
             </div>
           </div>
           <div style={{ display: "flex", gap: "10px" }}>
-            <button onClick={() => setShowImport(true)} style={secondaryBtn}>
-              Import CSV
-            </button>
-            <button
-              onClick={() => { setEditingEmployee(null); setShowAddModal(true); }}
+            <button onClick={() => setShowImport(true)} style={secondaryBtn}>Import CSV</button>
+            <button onClick={() => { setEditingMember(null); setShowAddModal(true); }}
               style={primaryBtn}
               onMouseEnter={e => e.currentTarget.style.background = "#163d6e"}
-              onMouseLeave={e => e.currentTarget.style.background = "#1B4F8A"}
-            >
-              + Add Employee
+              onMouseLeave={e => e.currentTarget.style.background = "#1B4F8A"}>
+              + Add Member
             </button>
           </div>
         </div>
@@ -186,28 +205,28 @@ export default function Census() {
         {/* Summary cards */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "12px", marginBottom: "24px" }}>
           <SummaryCard label="Total Employees" value={employees.length} />
+          <SummaryCard label="Total Members" value={allMembers.length} />
           {summary.map(s => (
             <SummaryCard key={s.tier} label={s.label} value={s.count}
               color={TIER_COLORS[s.tier]?.color} bg={TIER_COLORS[s.tier]?.bg} />
           ))}
-          {avgAge && <SummaryCard label="Average Age" value={avgAge} suffix=" yrs" />}
+          {avgAge && <SummaryCard label="Avg. Employee Age" value={avgAge} suffix=" yrs" />}
         </div>
 
         {/* Search */}
         <div style={{ marginBottom: "16px", maxWidth: "360px" }}>
           <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search employees..."
+            placeholder="Search by name, EID, or tier..."
             style={{
               width: "100%", padding: "9px 12px",
               border: "1px solid #D1D5DB", borderRadius: "8px",
-              background: "white", color: "#111827",
-              fontSize: "14px", outline: "none",
-              boxSizing: "border-box", fontFamily: "inherit",
+              background: "white", color: "#111827", fontSize: "14px",
+              outline: "none", boxSizing: "border-box", fontFamily: "inherit",
             }} />
         </div>
 
         {/* Employee table */}
-        {filtered.length === 0 ? (
+        {filteredEmployees.length === 0 ? (
           <div style={{
             background: "white", border: "1px solid #E5E7EB",
             borderRadius: "12px", padding: "64px 32px", textAlign: "center",
@@ -217,30 +236,29 @@ export default function Census() {
               {search ? "No employees match your search" : "No employees yet"}
             </h3>
             <p style={{ margin: "0 0 24px", color: "#6B7280", fontSize: "14px" }}>
-              {search ? "Try a different name or tier." : "Add employees individually or import a CSV census file."}
+              {search ? "Try a different name, EID, or tier." : "Add members individually or import a CSV census file."}
             </p>
             {!search && (
               <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
                 <button onClick={() => setShowImport(true)} style={secondaryBtn}>Import CSV</button>
                 <button onClick={() => setShowAddModal(true)} style={primaryBtn}
                   onMouseEnter={e => e.currentTarget.style.background = "#163d6e"}
-                  onMouseLeave={e => e.currentTarget.style.background = "#1B4F8A"}
-                >+ Add Employee</button>
+                  onMouseLeave={e => e.currentTarget.style.background = "#1B4F8A"}>
+                  + Add Member
+                </button>
               </div>
             )}
           </div>
         ) : (
-          <div style={{
-            background: "white", border: "1px solid #E5E7EB",
-            borderRadius: "12px", overflow: "hidden",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-          }}>
+          <div style={{ background: "white", border: "1px solid #E5E7EB", borderRadius: "12px", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid #E5E7EB", background: "#F9FAFB" }}>
+                  {/* Expand toggle column */}
+                  <th style={{ padding: "12px 8px 12px 16px", width: "32px" }} />
                   {[
+                    { label: "EID", field: "eid" },
                     { label: "Last Name", field: "last_name" },
-                    { label: "Relationship", field: "relationship" },
                     { label: "First Name", field: "first_name" },
                     { label: "DOB", field: "date_of_birth" },
                     { label: "Age", field: "age" },
@@ -261,37 +279,92 @@ export default function Census() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((e, i) => {
-                  const tc = TIER_COLORS[e.coverage_tier] || {};
+                {filteredEmployees.map((emp, i) => {
+                  const tc = TIER_COLORS[emp.coverage_tier] || {};
+                  const deps = emp.eid ? (dependentsByEID[emp.eid] || []) : [];
+                  const isExpanded = expandedEIDs[emp.eid || emp.id];
+                  const isLast = i === filteredEmployees.length - 1;
+
                   return (
-                    <tr key={e.id}
-                      style={{ borderBottom: i < filtered.length - 1 ? "1px solid #F3F4F6" : "none" }}
-                      onMouseEnter={ev => ev.currentTarget.style.background = "#F9FAFB"}
-                      onMouseLeave={ev => ev.currentTarget.style.background = "transparent"}
-                    >
-                      <td style={{ padding: "12px 16px", fontWeight: "600", fontSize: "14px", color: "#111827" }}>{e.last_name}</td>
-                      <td style={{ padding: "12px 16px", fontSize: "14px", color: "#374151" }}>{e.relationship || "-"}</td>
-                      <td style={{ padding: "12px 16px", fontSize: "14px", color: "#374151" }}>{e.first_name}</td>
-                      <td style={{ padding: "12px 16px", fontSize: "14px", color: "#6B7280", fontFamily: "monospace" }}>{formatDate(e.date_of_birth)}</td>
-                      <td style={{ padding: "12px 16px", fontSize: "14px", color: "#6B7280" }}>{calcAge(e.date_of_birth) ?? "-"}</td>
-                      <td style={{ padding: "12px 16px", fontSize: "14px", color: "#6B7280" }}>{e.gender || "-"}</td>
-                      <td style={{ padding: "12px 16px" }}>
-                        <span style={{
-                          background: tc.bg, color: tc.color,
-                          borderRadius: "6px", padding: "2px 10px",
-                          fontSize: "13px", fontWeight: "600",
-                        }}>{TIER_LABELS[e.coverage_tier] || e.coverage_tier}</span>
-                      </td>
-                      <td style={{ padding: "12px 16px", fontSize: "14px", color: "#6B7280", fontFamily: "monospace" }}>
-                        {e.zip_code || group.zip_code}
-                      </td>
-                      <td style={{ padding: "12px 16px" }}>
-                        <div style={{ display: "flex", gap: "6px" }}>
-                          <ActionBtn label="Edit" onClick={() => { setEditingEmployee(e); setShowAddModal(true); }} />
-                          <ActionBtn label="Delete" onClick={() => setDeleteTarget(e)} danger />
-                        </div>
-                      </td>
-                    </tr>
+                    <>
+                      {/* Employee row */}
+                      <tr key={emp.id}
+                        style={{ borderBottom: (!isExpanded || deps.length === 0) && !isLast ? "1px solid #F3F4F6" : "none", background: isExpanded ? "#F9FAFB" : "white" }}
+                        onMouseEnter={ev => { if (!isExpanded) ev.currentTarget.style.background = "#F9FAFB"; }}
+                        onMouseLeave={ev => { if (!isExpanded) ev.currentTarget.style.background = "white"; }}
+                      >
+                        {/* Expand toggle */}
+                        <td style={{ padding: "12px 4px 12px 16px" }}>
+                          {deps.length > 0 ? (
+                            <button
+                              onClick={() => toggleExpand(emp.eid || emp.id)}
+                              title={isExpanded ? "Hide dependents" : "Show " + deps.length + " dependent(s)"}
+                              style={{
+                                width: "20px", height: "20px", borderRadius: "4px",
+                                border: "1px solid #D1D5DB", background: isExpanded ? "#1B4F8A" : "white",
+                                color: isExpanded ? "white" : "#6B7280",
+                                fontSize: "11px", fontWeight: "700",
+                                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                                fontFamily: "inherit", flexShrink: 0,
+                              }}
+                            >
+                              {isExpanded ? "-" : "+"}
+                            </button>
+                          ) : (
+                            <div style={{ width: "20px" }} />
+                          )}
+                        </td>
+                        <td style={{ padding: "12px 16px", fontSize: "11px", fontFamily: "monospace", color: "#9CA3AF" }}>{emp.eid || "-"}</td>
+                        <td style={{ padding: "12px 16px", fontWeight: "600", fontSize: "14px", color: "#111827" }}>{emp.last_name}</td>
+                        <td style={{ padding: "12px 16px", fontSize: "14px", color: "#374151" }}>{emp.first_name}</td>
+                        <td style={{ padding: "12px 16px", fontSize: "14px", color: "#6B7280", fontFamily: "monospace" }}>{formatDate(emp.date_of_birth)}</td>
+                        <td style={{ padding: "12px 16px", fontSize: "14px", color: "#6B7280" }}>{calcAge(emp.date_of_birth) ?? "-"}</td>
+                        <td style={{ padding: "12px 16px", fontSize: "14px", color: "#6B7280" }}>{emp.gender || "-"}</td>
+                        <td style={{ padding: "12px 16px" }}>
+                          <span style={{ background: tc.bg, color: tc.color, borderRadius: "6px", padding: "2px 10px", fontSize: "13px", fontWeight: "600" }}>
+                            {TIER_LABELS[emp.coverage_tier] || emp.coverage_tier}
+                          </span>
+                        </td>
+                        <td style={{ padding: "12px 16px", fontSize: "14px", color: "#6B7280", fontFamily: "monospace" }}>{emp.zip_code || group.zip_code}</td>
+                        <td style={{ padding: "12px 16px" }}>
+                          <div style={{ display: "flex", gap: "6px" }}>
+                            <ActionBtn label="Edit" onClick={() => { setEditingMember(emp); setShowAddModal(true); }} />
+                            <ActionBtn label="Delete" onClick={() => setDeleteTarget(emp)} danger />
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Dependent rows */}
+                      {isExpanded && deps.map((dep, di) => {
+                        const rc = REL_COLORS[dep.relationship] || { bg: "#F3F4F6", color: "#374151" };
+                        return (
+                          <tr key={dep.id} style={{
+                            borderBottom: di < deps.length - 1 || !isLast ? "1px solid #F3F4F6" : "none",
+                            background: "#F0F7FF",
+                          }}>
+                            <td style={{ padding: "10px 4px 10px 16px" }} />
+                            <td style={{ padding: "10px 16px", fontSize: "11px", fontFamily: "monospace", color: "#9CA3AF" }}>{dep.eid || "-"}</td>
+                            <td style={{ padding: "10px 16px", fontSize: "13px", color: "#374151", paddingLeft: "28px" }}>{dep.last_name}</td>
+                            <td style={{ padding: "10px 16px", fontSize: "13px", color: "#374151" }}>{dep.first_name}</td>
+                            <td style={{ padding: "10px 16px", fontSize: "13px", color: "#6B7280", fontFamily: "monospace" }}>{formatDate(dep.date_of_birth)}</td>
+                            <td style={{ padding: "10px 16px", fontSize: "13px", color: "#6B7280" }}>{calcAge(dep.date_of_birth) ?? "-"}</td>
+                            <td style={{ padding: "10px 16px", fontSize: "13px", color: "#6B7280" }}>{dep.gender || "-"}</td>
+                            <td style={{ padding: "10px 16px" }}>
+                              <span style={{ background: rc.bg, color: rc.color, borderRadius: "6px", padding: "2px 8px", fontSize: "12px", fontWeight: "600" }}>
+                                {dep.relationship}
+                              </span>
+                            </td>
+                            <td style={{ padding: "10px 16px", fontSize: "13px", color: "#6B7280", fontFamily: "monospace" }}>{dep.zip_code || group.zip_code}</td>
+                            <td style={{ padding: "10px 16px" }}>
+                              <div style={{ display: "flex", gap: "6px" }}>
+                                <ActionBtn label="Edit" onClick={() => { setEditingMember(dep); setShowAddModal(true); }} />
+                                <ActionBtn label="Delete" onClick={() => setDeleteTarget(dep)} danger />
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </>
                   );
                 })}
               </tbody>
@@ -302,11 +375,11 @@ export default function Census() {
 
       {showAddModal && (
         <EmployeeModal
-          employee={editingEmployee}
+          employee={editingMember}
           groupId={id}
           groupZip={group.zip_code}
-          onClose={() => { setShowAddModal(false); setEditingEmployee(null); }}
-          onSaved={() => { setShowAddModal(false); setEditingEmployee(null); fetchData(); }}
+          onClose={() => { setShowAddModal(false); setEditingMember(null); }}
+          onSaved={() => { setShowAddModal(false); setEditingMember(null); fetchData(); }}
         />
       )}
 
@@ -327,14 +400,15 @@ export default function Census() {
         }}>
           <div style={{
             background: "white", borderRadius: "12px", padding: "28px",
-            maxWidth: "400px", width: "100%",
-            boxShadow: "0 20px 48px rgba(0,0,0,0.2)",
+            maxWidth: "400px", width: "100%", boxShadow: "0 20px 48px rgba(0,0,0,0.2)",
           }}>
             <h3 style={{ margin: "0 0 8px", fontSize: "18px", fontWeight: "600", color: "#111827" }}>
               Remove {deleteTarget.first_name} {deleteTarget.last_name}?
             </h3>
             <p style={{ margin: "0 0 24px", color: "#6B7280", fontSize: "14px", lineHeight: 1.6 }}>
-              This employee will be removed from the census. This cannot be undone.
+              {deleteTarget.relationship === "Employee" && deleteTarget.eid
+                ? "This will also remove all dependents linked to this employee. This cannot be undone."
+                : "This dependent will be removed from the census. This cannot be undone."}
             </p>
             <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
               <button onClick={() => setDeleteTarget(null)} style={secondaryBtn}>Cancel</button>
@@ -356,15 +430,8 @@ export default function Census() {
 
 function SummaryCard({ label, value, color, bg, suffix }) {
   return (
-    <div style={{
-      background: bg || "white",
-      border: "1px solid #E5E7EB",
-      borderRadius: "10px", padding: "16px 20px",
-      boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-    }}>
-      <div style={{ fontSize: "24px", fontWeight: "700", color: color || "#111827", lineHeight: 1 }}>
-        {value}{suffix || ""}
-      </div>
+    <div style={{ background: bg || "white", border: "1px solid #E5E7EB", borderRadius: "10px", padding: "16px 20px", boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+      <div style={{ fontSize: "24px", fontWeight: "700", color: color || "#111827", lineHeight: 1 }}>{value}{suffix || ""}</div>
       <div style={{ fontSize: "13px", color: "#6B7280", marginTop: "4px" }}>{label}</div>
     </div>
   );
@@ -373,9 +440,8 @@ function SummaryCard({ label, value, color, bg, suffix }) {
 function ActionBtn({ label, onClick, danger }) {
   return (
     <button onClick={onClick} style={{
-      background: "none", border: "1px solid #E5E7EB",
-      borderRadius: "6px", padding: "4px 10px",
-      cursor: "pointer", fontSize: "12px", fontWeight: "500",
+      background: "none", border: "1px solid #E5E7EB", borderRadius: "6px",
+      padding: "4px 10px", cursor: "pointer", fontSize: "12px", fontWeight: "500",
       color: danger ? "#EF4444" : "#374151", fontFamily: "inherit",
     }}
       onMouseEnter={e => e.currentTarget.style.background = danger ? "#FEE2E2" : "#F3F4F6"}
@@ -384,22 +450,6 @@ function ActionBtn({ label, onClick, danger }) {
   );
 }
 
-const crumbBtn = {
-  background: "none", border: "none", cursor: "pointer",
-  color: "#6B7280", fontSize: "13px", padding: 0, fontFamily: "inherit",
-};
-
-const secondaryBtn = {
-  padding: "9px 18px", borderRadius: "8px",
-  border: "1px solid #D1D5DB", background: "white",
-  color: "#374151", fontSize: "14px", fontWeight: "500",
-  cursor: "pointer", fontFamily: "inherit",
-};
-
-const primaryBtn = {
-  padding: "9px 18px", borderRadius: "8px", border: "none",
-  background: "#1B4F8A", color: "white",
-  fontSize: "14px", fontWeight: "600",
-  cursor: "pointer", fontFamily: "inherit",
-};
-
+const crumbBtn = { background: "none", border: "none", cursor: "pointer", color: "#6B7280", fontSize: "13px", padding: 0, fontFamily: "inherit" };
+const secondaryBtn = { padding: "9px 18px", borderRadius: "8px", border: "1px solid #D1D5DB", background: "white", color: "#374151", fontSize: "14px", fontWeight: "500", cursor: "pointer", fontFamily: "inherit" };
+const primaryBtn = { padding: "9px 18px", borderRadius: "8px", border: "none", background: "#1B4F8A", color: "white", fontSize: "14px", fontWeight: "600", cursor: "pointer", fontFamily: "inherit" };

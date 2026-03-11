@@ -3,6 +3,7 @@ import { useState, useRef } from "react";
 import { supabase } from "../lib/supabase";
 
 const OUR_FIELDS = [
+  { key: "eid", label: "Employee ID (EID)", required: false },
   { key: "first_name", label: "First Name", required: true },
   { key: "last_name", label: "Last Name", required: true },
   { key: "date_of_birth", label: "Date of Birth", required: true },
@@ -13,22 +14,18 @@ const OUR_FIELDS = [
 ];
 
 const TIER_MAP = {
-  // EE Only
   "ee": "EE", "employee": "EE", "employee only": "EE", "ee only": "EE", "single": "EE",
-  // EE + Spouse
   "ee+sp": "EE+SP", "ee + sp": "EE+SP", "ee+spouse": "EE+SP", "ee + spouse": "EE+SP",
   "employee + spouse": "EE+SP", "employee+spouse": "EE+SP", "two party": "EE+SP",
   "2-party": "EE+SP", "2 party": "EE+SP", "couple": "EE+SP",
   "employee + domestic partner": "EE+SP", "ee + domestic partner": "EE+SP",
-  // EE + Child (any number of children, no spouse)
   "ee+ch": "EE+CH", "ee + ch": "EE+CH", "ee+child": "EE+CH", "ee + child": "EE+CH",
   "ee+children": "EE+CH", "ee + children": "EE+CH", "employee + child": "EE+CH",
   "employee+child": "EE+CH", "employee + children": "EE+CH", "parent+child": "EE+CH",
   "employee + 1 child": "EE+CH", "employee + 2 children": "EE+CH",
   "employee + 3 children": "EE+CH", "employee + 4 children": "EE+CH",
   "employee + 5 children": "EE+CH", "ee + 1 child": "EE+CH", "ee + 2 children": "EE+CH",
-  "ee + 3 children": "EE+CH", "ee+1 child": "EE+CH", "ee+2 children": "EE+CH",
-  // EE + Family (spouse + any children)
+  "ee + 3 children": "EE+CH",
   "ee+fam": "EE+FAM", "ee + fam": "EE+FAM", "ee+family": "EE+FAM", "ee + family": "EE+FAM",
   "employee + family": "EE+FAM", "employee+family": "EE+FAM", "family": "EE+FAM",
   "employee + spouse + 1 child": "EE+FAM", "employee + spouse + 2 children": "EE+FAM",
@@ -41,12 +38,17 @@ const TIER_MAP = {
 const RELATIONSHIP_MAP = {
   "employee": "Employee", "ee": "Employee", "self": "Employee", "subscriber": "Employee", "employee only": "Employee",
   "spouse": "Spouse", "husband": "Spouse", "wife": "Spouse",
+  "spouse-ex": "Spouse-Ex", "ex spouse": "Spouse-Ex", "ex-spouse": "Spouse-Ex",
   "domestic partner": "Domestic Partner", "dp": "Domestic Partner", "domestic_partner": "Domestic Partner",
   "child": "Child", "dependent": "Child", "son": "Child", "daughter": "Child",
-  "child - legal guardian": "Child-Legal Guardian", "child legal guardian": "Child-Legal Guardian", "legal guardian": "Child-Legal Guardian", "guardian": "Child-Legal Guardian",
-  "child - adopted": "Child-Adopted", "child adopted": "Child-Adopted", "adopted": "Child-Adopted", "adopted child": "Child-Adopted",
-  "child - step": "Child-Step", "child step": "Child-Step", "stepchild": "Child-Step", "step child": "Child-Step", "step-child": "Child-Step",
-  "child - domestic partner": "Child-Domestic Partner", "child domestic partner": "Child-Domestic Partner", "dp child": "Child-Domestic Partner",
+  "child - legal guardian": "Child-Legal Guardian", "child legal guardian": "Child-Legal Guardian",
+  "child-legal guardian": "Child-Legal Guardian", "legal guardian": "Child-Legal Guardian",
+  "child - adopted": "Child-Adopted", "child adopted": "Child-Adopted",
+  "child-adopted": "Child-Adopted", "adopted": "Child-Adopted", "adopted child": "Child-Adopted",
+  "child - step": "Child-Step", "child step": "Child-Step",
+  "child-step": "Child-Step", "stepchild": "Child-Step", "step child": "Child-Step",
+  "child - domestic partner": "Child-Domestic Partner", "child domestic partner": "Child-Domestic Partner",
+  "child-domestic partner": "Child-Domestic Partner", "dp child": "Child-Domestic Partner",
 };
 
 const TIER_LABELS = { "EE": "EE Only", "EE+SP": "EE + Spouse", "EE+CH": "EE + Child(ren)", "EE+FAM": "EE + Family" };
@@ -72,9 +74,14 @@ function parseDOB(val) {
   return null;
 }
 
+function generateEID() {
+  return "EID-" + Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
 function autoSuggestMapping(headers) {
   const mapping = {};
   const hints = {
+    eid: ["eid", "employee id", "employeeid", "employee_id", "id number", "member id"],
     first_name: ["first", "firstname", "first name", "fname", "given name"],
     last_name: ["last", "lastname", "last name", "lname", "surname", "family name"],
     date_of_birth: ["dob", "date of birth", "birth date", "birthdate", "birthday", "birth_date"],
@@ -126,17 +133,11 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
   const fileRef = useRef();
 
   function handleFile(file) {
-    if (!file || !file.name.endsWith(".csv")) {
-      alert("Please upload a .csv file.");
-      return;
-    }
+    if (!file || !file.name.endsWith(".csv")) { alert("Please upload a .csv file."); return; }
     const reader = new FileReader();
     reader.onload = e => {
       const parsed = parseCSV(e.target.result);
-      if (parsed.headers.length === 0) {
-        alert("Could not parse this file. Make sure it is a valid CSV.");
-        return;
-      }
+      if (parsed.headers.length === 0) { alert("Could not parse this file."); return; }
       setCsvData(parsed);
       setMapping(autoSuggestMapping(parsed.headers));
       setStep(1);
@@ -152,12 +153,15 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
 
   function buildPreview(mappingToUse) {
     const { rows } = csvData;
+    let currentEID = null;
     return rows.map((row, idx) => {
       const entry = { _row: idx + 2, _errors: [] };
       OUR_FIELDS.forEach(f => {
         const colIdx = mappingToUse[f.key];
         const raw = colIdx !== undefined ? (row[colIdx] || "").trim() : "";
-        if (f.key === "date_of_birth") {
+        if (f.key === "eid") {
+          entry[f.key] = raw || null;
+        } else if (f.key === "date_of_birth") {
           entry[f.key] = parseDOB(raw);
           if (f.required && !entry[f.key]) entry._errors.push("Invalid or missing Date of Birth");
         } else if (f.key === "coverage_tier") {
@@ -170,7 +174,6 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
           const g = raw.toUpperCase();
           entry[f.key] = ["M", "F", "X"].includes(g) ? g : (raw.toLowerCase().startsWith("m") ? "M" : raw.toLowerCase().startsWith("f") ? "F" : null);
         } else if (f.key === "zip_code") {
-          // Accept any zip, strip ZIP+4 format (e.g. 90210-1234 -> 90210)
           const zipClean = raw ? raw.split("-")[0].trim() : null;
           entry[f.key] = zipClean || null;
         } else {
@@ -178,16 +181,28 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
           if (f.required && !raw) entry._errors.push("Missing " + f.label);
         }
       });
+
+      // Auto-assign EID if not mapped:
+      // Each Employee row gets a new EID; dependents inherit the last Employee EID
+      if (!entry.eid) {
+        if (entry.relationship === "Employee") {
+          currentEID = generateEID();
+        }
+        entry.eid = currentEID;
+      } else {
+        // If EID is from the file, track it for dependents
+        if (entry.relationship === "Employee") {
+          currentEID = entry.eid;
+        }
+      }
+
       return entry;
     });
   }
 
   function handleProceedToPreview() {
     const missing = OUR_FIELDS.filter(f => f.required && mapping[f.key] === undefined);
-    if (missing.length) {
-      alert("Please map required fields: " + missing.map(f => f.label).join(", "));
-      return;
-    }
+    if (missing.length) { alert("Please map required fields: " + missing.map(f => f.label).join(", ")); return; }
     setPreview(buildPreview(mapping));
     setStep(2);
   }
@@ -198,6 +213,7 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
     setImporting(true);
     const payload = valid.map(r => ({
       group_id: groupId,
+      eid: r.eid,
       first_name: r.first_name,
       last_name: r.last_name,
       date_of_birth: r.date_of_birth,
@@ -230,7 +246,6 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
         display: "flex", flexDirection: "column",
         boxShadow: "0 20px 48px rgba(0,0,0,0.2)",
       }}>
-
         {/* Header */}
         <div style={{
           padding: "20px 24px 16px", borderBottom: "1px solid #E5E7EB",
@@ -240,20 +255,13 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
             <h2 style={{ margin: 0, fontSize: "18px", fontWeight: "700", color: "#111827" }}>Import Census</h2>
             <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#6B7280" }}>Upload any CSV — no template required</p>
           </div>
-          <button onClick={onClose} style={{
-            background: "none", border: "none", cursor: "pointer",
-            color: "#9CA3AF", fontSize: "20px", padding: "4px", borderRadius: "6px", fontFamily: "inherit",
-          }}
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", fontSize: "20px", padding: "4px", borderRadius: "6px", fontFamily: "inherit" }}
             onMouseEnter={e => e.currentTarget.style.color = "#374151"}
-            onMouseLeave={e => e.currentTarget.style.color = "#9CA3AF"}
-          >X</button>
+            onMouseLeave={e => e.currentTarget.style.color = "#9CA3AF"}>X</button>
         </div>
 
-        {/* Step indicators */}
-        <div style={{
-          display: "flex", padding: "14px 24px", gap: "8px",
-          borderBottom: "1px solid #E5E7EB", flexShrink: 0, alignItems: "center",
-        }}>
+        {/* Steps */}
+        <div style={{ display: "flex", padding: "14px 24px", gap: "8px", borderBottom: "1px solid #E5E7EB", flexShrink: 0, alignItems: "center" }}>
           {STEPS.map((s, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <div style={{
@@ -264,10 +272,7 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
                 color: i === step ? "white" : i < step ? "#1B4F8A" : "#9CA3AF",
                 border: i < step ? "1.5px solid #1B4F8A" : "none",
               }}>{i < step ? "+" : i + 1}</div>
-              <span style={{
-                fontSize: "13px", fontWeight: i === step ? 600 : 400,
-                color: i === step ? "#111827" : "#9CA3AF",
-              }}>{s}</span>
+              <span style={{ fontSize: "13px", fontWeight: i === step ? 600 : 400, color: i === step ? "#111827" : "#9CA3AF" }}>{s}</span>
               {i < STEPS.length - 1 && <span style={{ color: "#D1D5DB", marginLeft: "4px" }}>—</span>}
             </div>
           ))}
@@ -276,7 +281,6 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
         {/* Body */}
         <div style={{ padding: "20px 24px", overflowY: "auto", flex: 1 }}>
 
-          {/* Step 0: Upload */}
           {step === 0 && (
             <div
               onDragOver={e => { e.preventDefault(); setDragOver(true); }}
@@ -285,28 +289,25 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
               onClick={() => fileRef.current.click()}
               style={{
                 border: "2px dashed " + (dragOver ? "#1B4F8A" : "#D1D5DB"),
-                borderRadius: "12px", padding: "48px 32px",
-                textAlign: "center", cursor: "pointer",
-                background: dragOver ? "#EFF6FF" : "#F9FAFB",
-                transition: "all 0.2s",
+                borderRadius: "12px", padding: "48px 32px", textAlign: "center",
+                cursor: "pointer", background: dragOver ? "#EFF6FF" : "#F9FAFB", transition: "all 0.2s",
               }}
             >
               <div style={{ fontSize: "14px", fontWeight: "600", color: "#111827", marginBottom: "8px" }}>
                 Drop your CSV file here, or click to browse
               </div>
               <div style={{ fontSize: "13px", color: "#6B7280" }}>
-                Any CSV format accepted — Employee Navigator, spreadsheet exports, anything
+                Any CSV format accepted — Ease, Employee Navigator, spreadsheet exports
               </div>
               <input ref={fileRef} type="file" accept=".csv" style={{ display: "none" }}
                 onChange={e => handleFile(e.target.files[0])} />
             </div>
           )}
 
-          {/* Step 1: Map columns */}
           {step === 1 && csvData && (
             <div style={{ display: "grid", gap: "16px" }}>
               <p style={{ margin: 0, fontSize: "14px", color: "#6B7280" }}>
-                We found {csvData.headers.length} columns in your file. Match each of our fields to the right column.
+                We found {csvData.headers.length} columns in your file. Match each field below.
                 Fields marked <span style={{ color: "#EF4444" }}>*</span> are required.
               </p>
               <div style={{ border: "1px solid #E5E7EB", borderRadius: "10px", overflow: "hidden" }}>
@@ -322,12 +323,9 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
                       <tr key={f.key} style={{ borderBottom: i < OUR_FIELDS.length - 1 ? "1px solid #F3F4F6" : "none" }}>
                         <td style={{ padding: "12px 16px", fontSize: "14px", fontWeight: "500", color: "#111827" }}>
                           {f.label}{f.required && <span style={{ color: "#EF4444", marginLeft: "2px" }}>*</span>}
-                          {f.key === "zip_code" && (
-                            <div style={{ fontSize: "11px", color: "#9CA3AF", marginTop: "2px" }}>Any state accepted</div>
-                          )}
-                          {f.key === "relationship" && (
-                            <div style={{ fontSize: "11px", color: "#9CA3AF", marginTop: "2px" }}>Employee, Spouse, or Child</div>
-                          )}
+                          {f.key === "eid" && <div style={{ fontSize: "11px", color: "#9CA3AF", marginTop: "2px" }}>Auto-assigned if not mapped</div>}
+                          {f.key === "zip_code" && <div style={{ fontSize: "11px", color: "#9CA3AF", marginTop: "2px" }}>Any state accepted</div>}
+                          {f.key === "relationship" && <div style={{ fontSize: "11px", color: "#9CA3AF", marginTop: "2px" }}>Employee, Spouse, Child, etc.</div>}
                         </td>
                         <td style={{ padding: "12px 16px" }}>
                           <select
@@ -336,28 +334,22 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
                               const val = e.target.value;
                               setMapping(prev => {
                                 const next = { ...prev };
-                                if (val === "") { delete next[f.key]; }
-                                else { next[f.key] = parseInt(val); }
+                                if (val === "") { delete next[f.key]; } else { next[f.key] = parseInt(val); }
                                 return next;
                               });
                             }}
                             style={{
                               padding: "7px 10px", borderRadius: "7px",
                               border: "1px solid " + (f.required && mapping[f.key] === undefined ? "#FCA5A5" : "#D1D5DB"),
-                              background: "white", color: "#111827",
-                              fontSize: "13px", outline: "none", fontFamily: "inherit",
-                              minWidth: "200px",
+                              background: "white", color: "#111827", fontSize: "13px",
+                              outline: "none", fontFamily: "inherit", minWidth: "200px",
                             }}
                           >
                             <option value="">-- Skip this field --</option>
-                            {csvData.headers.map((h, idx) => (
-                              <option key={idx} value={idx}>{h}</option>
-                            ))}
+                            {csvData.headers.map((h, idx) => <option key={idx} value={idx}>{h}</option>)}
                           </select>
                           {mapping[f.key] !== undefined && (
-                            <span style={{ marginLeft: "8px", fontSize: "12px", color: "#1B4F8A", fontStyle: "italic" }}>
-                              Auto-matched
-                            </span>
+                            <span style={{ marginLeft: "8px", fontSize: "12px", color: "#1B4F8A", fontStyle: "italic" }}>Auto-matched</span>
                           )}
                         </td>
                       </tr>
@@ -366,7 +358,6 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
                 </table>
               </div>
 
-              {/* Sample rows */}
               <div>
                 <p style={{ margin: "0 0 8px", fontSize: "12px", fontWeight: "600", color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                   First 3 rows from your file
@@ -384,9 +375,7 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
                       {csvData.rows.slice(0, 3).map((row, i) => (
                         <tr key={i} style={{ borderBottom: i < 2 ? "1px solid #F3F4F6" : "none" }}>
                           {csvData.headers.map((_, j) => (
-                            <td key={j} style={{ padding: "8px 12px", whiteSpace: "nowrap", color: "#374151" }}>
-                              {row[j] || ""}
-                            </td>
+                            <td key={j} style={{ padding: "8px 12px", whiteSpace: "nowrap", color: "#374151" }}>{row[j] || ""}</td>
                           ))}
                         </tr>
                       ))}
@@ -397,7 +386,6 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
             </div>
           )}
 
-          {/* Step 2: Preview */}
           {step === 2 && !result && (
             <div style={{ display: "grid", gap: "16px" }}>
               <div style={{ display: "flex", gap: "12px" }}>
@@ -409,6 +397,7 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
                   <thead>
                     <tr style={{ background: "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
+                      <th style={thStyle}>EID</th>
                       <th style={thStyle}>Name</th>
                       <th style={thStyle}>DOB</th>
                       <th style={thStyle}>Relationship</th>
@@ -424,6 +413,7 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
                         borderBottom: i < preview.length - 1 ? "1px solid #F3F4F6" : "none",
                         background: r._errors.length ? "#FFF5F5" : "transparent",
                       }}>
+                        <td style={{ ...tdStyle, fontFamily: "monospace", fontSize: "11px", color: "#9CA3AF" }}>{r.eid || "-"}</td>
                         <td style={tdStyle}>{(r.first_name || "") + " " + (r.last_name || "")}</td>
                         <td style={tdStyle}>{r.date_of_birth || "-"}</td>
                         <td style={tdStyle}>{r.relationship || "-"}</td>
@@ -446,20 +436,19 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
               </div>
               {errorCount > 0 && (
                 <p style={{ margin: 0, fontSize: "13px", color: "#6B7280" }}>
-                  Hover over "Error" in the Status column to see what went wrong. Those rows will be skipped.
+                  Hover over "Error" to see details. Those rows will be skipped.
                 </p>
               )}
             </div>
           )}
 
-          {/* Result */}
           {result && (
             <div style={{ textAlign: "center", padding: "32px 16px" }}>
               {result.success ? (
                 <>
                   <h3 style={{ margin: "0 0 8px", fontSize: "20px", fontWeight: "700", color: "#111827" }}>Import Complete</h3>
                   <p style={{ margin: "0 0 4px", color: "#6B7280", fontSize: "14px" }}>
-                    {result.imported} {result.imported === 1 ? "employee" : "employees"} imported successfully.
+                    {result.imported} {result.imported === 1 ? "member" : "members"} imported successfully.
                   </p>
                   {result.skipped > 0 && (
                     <p style={{ margin: 0, color: "#DC2626", fontSize: "13px" }}>
@@ -490,16 +479,14 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
           </div>
           <div style={{ display: "flex", gap: "12px" }}>
             <button onClick={onClose} style={secondaryBtn}>{result ? "Close" : "Cancel"}</button>
-            {step === 1 && (
-              <button onClick={handleProceedToPreview} style={primaryBtn}>Preview Import</button>
-            )}
+            {step === 1 && <button onClick={handleProceedToPreview} style={primaryBtn}>Preview Import</button>}
             {step === 2 && !result && (
               <button onClick={handleImport} disabled={importing || validCount === 0} style={{
                 ...primaryBtn,
                 background: importing || validCount === 0 ? "#93C5FD" : "#1B4F8A",
                 cursor: importing || validCount === 0 ? "not-allowed" : "pointer",
               }}>
-                {importing ? "Importing..." : "Import " + validCount + " " + (validCount === 1 ? "Employee" : "Employees")}
+                {importing ? "Importing..." : "Import " + validCount + " " + (validCount === 1 ? "Member" : "Members")}
               </button>
             )}
             {result && result.success && (
@@ -519,35 +506,13 @@ function StatChip({ label, value, accent, danger }) {
       border: "1px solid " + (accent ? "#1B4F8A" : danger ? "#FCA5A5" : "#E5E7EB"),
       background: accent ? "#EFF6FF" : danger ? "#FFF5F5" : "#F9FAFB",
     }}>
-      <div style={{ fontSize: "20px", fontWeight: "700", color: accent ? "#1B4F8A" : danger ? "#DC2626" : "#111827" }}>
-        {value}
-      </div>
+      <div style={{ fontSize: "20px", fontWeight: "700", color: accent ? "#1B4F8A" : danger ? "#DC2626" : "#111827" }}>{value}</div>
       <div style={{ fontSize: "12px", color: "#6B7280" }}>{label}</div>
     </div>
   );
 }
 
-const thStyle = {
-  padding: "10px 14px", textAlign: "left",
-  fontSize: "12px", fontWeight: "600", color: "#6B7280",
-  textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap",
-};
-
+const thStyle = { padding: "10px 14px", textAlign: "left", fontSize: "12px", fontWeight: "600", color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap" };
 const tdStyle = { padding: "10px 14px", color: "#374151", whiteSpace: "nowrap" };
-
-const secondaryBtn = {
-  padding: "9px 20px", borderRadius: "8px",
-  border: "1px solid #D1D5DB", background: "white",
-  color: "#374151", fontSize: "14px",
-  fontWeight: "500", cursor: "pointer", fontFamily: "inherit",
-};
-
-const primaryBtn = {
-  padding: "9px 20px", borderRadius: "8px", border: "none",
-  background: "#1B4F8A", color: "white",
-  fontSize: "14px", fontWeight: "600",
-  cursor: "pointer", fontFamily: "inherit",
-};
-
-
-
+const secondaryBtn = { padding: "9px 20px", borderRadius: "8px", border: "1px solid #D1D5DB", background: "white", color: "#374151", fontSize: "14px", fontWeight: "500", cursor: "pointer", fontFamily: "inherit" };
+const primaryBtn = { padding: "9px 20px", borderRadius: "8px", border: "none", background: "#1B4F8A", color: "white", fontSize: "14px", fontWeight: "600", cursor: "pointer", fontFamily: "inherit" };
