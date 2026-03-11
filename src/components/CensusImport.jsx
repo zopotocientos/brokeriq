@@ -8,10 +8,9 @@ const OUR_FIELDS = [
   { key: "date_of_birth", label: "Date of Birth", required: true },
   { key: "coverage_tier", label: "Coverage Tier", required: true },
   { key: "gender", label: "Gender", required: false },
-  { key: "zip", label: "ZIP Code", required: false },
+  { key: "zip_code", label: "ZIP Code", required: false },
 ];
 
-// Tier normalization — maps common variants to our internal codes
 const TIER_MAP = {
   "ee": "EE", "employee": "EE", "employee only": "EE", "ee only": "EE", "single": "EE",
   "ee+sp": "EE+SP", "ee + sp": "EE+SP", "ee+spouse": "EE+SP", "ee + spouse": "EE+SP",
@@ -28,19 +27,15 @@ const TIER_LABELS = { "EE": "EE Only", "EE+SP": "EE + Spouse", "EE+CH": "EE + Ch
 
 function normalizeTier(val) {
   if (!val) return null;
-  const key = val.trim().toLowerCase();
-  return TIER_MAP[key] || null;
+  return TIER_MAP[val.trim().toLowerCase()] || null;
 }
 
 function parseDOB(val) {
   if (!val) return null;
   const s = val.trim();
-  // Try YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  // Try MM/DD/YYYY or M/D/YYYY
   const mdy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (mdy) return mdy[3] + "-" + mdy[1].padStart(2, "0") + "-" + mdy[2].padStart(2, "0");
-  // Try MM-DD-YYYY
   const mdy2 = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
   if (mdy2) return mdy2[3] + "-" + mdy2[1].padStart(2, "0") + "-" + mdy2[2].padStart(2, "0");
   return null;
@@ -54,7 +49,7 @@ function autoSuggestMapping(headers) {
     date_of_birth: ["dob", "date of birth", "birth date", "birthdate", "birthday", "birth_date"],
     coverage_tier: ["tier", "coverage", "coverage tier", "plan", "election", "coverage type", "dependent tier"],
     gender: ["gender", "sex"],
-    zip: ["zip", "zipcode", "zip code", "postal", "postal code"],
+    zip_code: ["zip", "zipcode", "zip code", "postal", "postal code"],
   };
   headers.forEach((h, i) => {
     const lower = h.trim().toLowerCase();
@@ -124,9 +119,8 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
   }
 
   function buildPreview(mappingToUse) {
-    const { headers, rows } = csvData;
-    const results = [];
-    rows.forEach((row, idx) => {
+    const { rows } = csvData;
+    return rows.map((row, idx) => {
       const entry = { _row: idx + 2, _errors: [] };
       OUR_FIELDS.forEach(f => {
         const colIdx = mappingToUse[f.key];
@@ -145,9 +139,8 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
           if (f.required && !raw) entry._errors.push("Missing " + f.label);
         }
       });
-      results.push(entry);
+      return entry;
     });
-    return results;
   }
 
   function handleProceedToPreview() {
@@ -162,10 +155,7 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
 
   async function handleImport() {
     const valid = preview.filter(r => r._errors.length === 0);
-    if (valid.length === 0) {
-      alert("No valid rows to import.");
-      return;
-    }
+    if (valid.length === 0) { alert("No valid rows to import."); return; }
     setImporting(true);
     const payload = valid.map(r => ({
       group_id: groupId,
@@ -174,9 +164,8 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
       date_of_birth: r.date_of_birth,
       coverage_tier: r.coverage_tier,
       gender: r.gender || null,
-      zip_code: r.zip || null,
+      zip_code: r.zip_code || null,
     }));
-
     const { error } = await supabase.from("census").insert(payload);
     setImporting(false);
     if (error) {
@@ -192,61 +181,62 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
   return (
     <div onClick={e => { if (e.target === e.currentTarget) onClose(); }} style={{
       position: "fixed", inset: 0, zIndex: 50,
-      background: "rgba(10, 15, 30, 0.6)", backdropFilter: "blur(4px)",
-      display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem",
+      background: "rgba(0,0,0,0.4)", backdropFilter: "blur(2px)",
+      display: "flex", alignItems: "center", justifyContent: "center", padding: "16px",
     }}>
       <div style={{
-        background: "var(--surface)", border: "1px solid var(--border)",
-        borderRadius: "16px", width: "100%", maxWidth: "680px",
-        maxHeight: "90vh", display: "flex", flexDirection: "column",
-        boxShadow: "0 24px 64px rgba(0,0,0,0.25)",
-        animation: "modalIn 0.2s ease-out",
+        background: "white", borderRadius: "12px",
+        width: "100%", maxWidth: "680px", maxHeight: "90vh",
+        display: "flex", flexDirection: "column",
+        boxShadow: "0 20px 48px rgba(0,0,0,0.2)",
       }}>
+
         {/* Header */}
         <div style={{
-          padding: "1.5rem 1.75rem 1.25rem", borderBottom: "1px solid var(--border)",
+          padding: "20px 24px 16px", borderBottom: "1px solid #E5E7EB",
           display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0,
         }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: "1.125rem", fontWeight: 600 }}>Import Census</h2>
-            <p style={{ margin: "0.25rem 0 0", fontSize: "0.8125rem", color: "var(--text-muted)" }}>
-              Upload any CSV — no template required
-            </p>
+            <h2 style={{ margin: 0, fontSize: "18px", fontWeight: "700", color: "#111827" }}>Import Census</h2>
+            <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#6B7280" }}>Upload any CSV — no template required</p>
           </div>
           <button onClick={onClose} style={{
             background: "none", border: "none", cursor: "pointer",
-            color: "var(--text-muted)", fontSize: "1.25rem", padding: "0.25rem", borderRadius: "6px",
-          }}>X</button>
+            color: "#9CA3AF", fontSize: "20px", padding: "4px", borderRadius: "6px", fontFamily: "inherit",
+          }}
+            onMouseEnter={e => e.currentTarget.style.color = "#374151"}
+            onMouseLeave={e => e.currentTarget.style.color = "#9CA3AF"}
+          >X</button>
         </div>
 
         {/* Step indicators */}
         <div style={{
-          display: "flex", padding: "1rem 1.75rem", gap: "0.5rem",
-          borderBottom: "1px solid var(--border)", flexShrink: 0,
+          display: "flex", padding: "14px 24px", gap: "8px",
+          borderBottom: "1px solid #E5E7EB", flexShrink: 0, alignItems: "center",
         }}>
           {STEPS.map((s, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <div style={{
                 width: "24px", height: "24px", borderRadius: "50%",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: "0.75rem", fontWeight: 700,
-                background: i === step ? "var(--accent)" : i < step ? "var(--accent-subtle)" : "var(--surface-subtle)",
-                color: i === step ? "#fff" : i < step ? "var(--accent)" : "var(--text-muted)",
-                border: i < step ? "1.5px solid var(--accent)" : "none",
+                fontSize: "12px", fontWeight: "700",
+                background: i === step ? "#1B4F8A" : i < step ? "#EFF6FF" : "#F3F4F6",
+                color: i === step ? "white" : i < step ? "#1B4F8A" : "#9CA3AF",
+                border: i < step ? "1.5px solid #1B4F8A" : "none",
               }}>{i < step ? "+" : i + 1}</div>
               <span style={{
-                fontSize: "0.8125rem", fontWeight: i === step ? 600 : 400,
-                color: i === step ? "var(--text-primary)" : "var(--text-muted)",
+                fontSize: "13px", fontWeight: i === step ? 600 : 400,
+                color: i === step ? "#111827" : "#9CA3AF",
               }}>{s}</span>
               {i < STEPS.length - 1 && (
-                <span style={{ color: "var(--border)", marginLeft: "0.25rem" }}>-</span>
+                <span style={{ color: "#D1D5DB", marginLeft: "4px" }}>—</span>
               )}
             </div>
           ))}
         </div>
 
         {/* Body */}
-        <div style={{ padding: "1.5rem 1.75rem", overflowY: "auto", flex: 1 }}>
+        <div style={{ padding: "20px 24px", overflowY: "auto", flex: 1 }}>
 
           {/* Step 0: Upload */}
           {step === 0 && (
@@ -256,19 +246,17 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
               onDrop={handleDrop}
               onClick={() => fileRef.current.click()}
               style={{
-                border: "2px dashed " + (dragOver ? "var(--accent)" : "var(--border)"),
-                borderRadius: "12px",
-                padding: "3rem 2rem",
-                textAlign: "center",
-                cursor: "pointer",
-                background: dragOver ? "var(--accent-subtle)" : "var(--surface-subtle)",
+                border: "2px dashed " + (dragOver ? "#1B4F8A" : "#D1D5DB"),
+                borderRadius: "12px", padding: "48px 32px",
+                textAlign: "center", cursor: "pointer",
+                background: dragOver ? "#EFF6FF" : "#F9FAFB",
                 transition: "all 0.2s",
               }}
             >
-              <div style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--text-primary)", marginBottom: "0.5rem" }}>
+              <div style={{ fontSize: "14px", fontWeight: "600", color: "#111827", marginBottom: "8px" }}>
                 Drop your CSV file here, or click to browse
               </div>
-              <div style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+              <div style={{ fontSize: "13px", color: "#6B7280" }}>
                 Any CSV format accepted — Employee Navigator, spreadsheet exports, anything
               </div>
               <input ref={fileRef} type="file" accept=".csv" style={{ display: "none" }}
@@ -278,34 +266,26 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
 
           {/* Step 1: Map columns */}
           {step === 1 && csvData && (
-            <div style={{ display: "grid", gap: "1rem" }}>
-              <p style={{ margin: 0, fontSize: "0.875rem", color: "var(--text-muted)" }}>
+            <div style={{ display: "grid", gap: "16px" }}>
+              <p style={{ margin: 0, fontSize: "14px", color: "#6B7280" }}>
                 We found {csvData.headers.length} columns in your file. Match each of our fields to the right column.
-                Fields marked <span style={{ color: "var(--accent)" }}>*</span> are required.
+                Fields marked <span style={{ color: "#EF4444" }}>*</span> are required.
               </p>
-              <div style={{
-                background: "var(--surface-subtle)", borderRadius: "10px",
-                overflow: "hidden", border: "1px solid var(--border)",
-              }}>
+              <div style={{ border: "1px solid #E5E7EB", borderRadius: "10px", overflow: "hidden" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
-                    <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                      <th style={{ padding: "0.625rem 1rem", textAlign: "left", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                        Our Field
-                      </th>
-                      <th style={{ padding: "0.625rem 1rem", textAlign: "left", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                        Your Column
-                      </th>
+                    <tr style={{ borderBottom: "1px solid #E5E7EB", background: "#F9FAFB" }}>
+                      <th style={thStyle}>Our Field</th>
+                      <th style={thStyle}>Your Column</th>
                     </tr>
                   </thead>
                   <tbody>
                     {OUR_FIELDS.map((f, i) => (
-                      <tr key={f.key} style={{ borderBottom: i < OUR_FIELDS.length - 1 ? "1px solid var(--border)" : "none" }}>
-                        <td style={{ padding: "0.75rem 1rem", fontSize: "0.9rem", fontWeight: 500, color: "var(--text-primary)" }}>
-                          {f.label}
-                          {f.required && <span style={{ color: "var(--accent)", marginLeft: "2px" }}>*</span>}
+                      <tr key={f.key} style={{ borderBottom: i < OUR_FIELDS.length - 1 ? "1px solid #F3F4F6" : "none" }}>
+                        <td style={{ padding: "12px 16px", fontSize: "14px", fontWeight: "500", color: "#111827" }}>
+                          {f.label}{f.required && <span style={{ color: "#EF4444", marginLeft: "2px" }}>*</span>}
                         </td>
-                        <td style={{ padding: "0.75rem 1rem" }}>
+                        <td style={{ padding: "12px 16px" }}>
                           <select
                             value={mapping[f.key] !== undefined ? mapping[f.key] : ""}
                             onChange={e => {
@@ -318,10 +298,10 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
                               });
                             }}
                             style={{
-                              padding: "0.4375rem 0.625rem", borderRadius: "7px",
-                              border: "1.5px solid " + (f.required && mapping[f.key] === undefined ? "#fca5a5" : "var(--border)"),
-                              background: "var(--surface)", color: "var(--text-primary)",
-                              fontSize: "0.875rem", outline: "none", fontFamily: "inherit",
+                              padding: "7px 10px", borderRadius: "7px",
+                              border: "1px solid " + (f.required && mapping[f.key] === undefined ? "#FCA5A5" : "#D1D5DB"),
+                              background: "white", color: "#111827",
+                              fontSize: "13px", outline: "none", fontFamily: "inherit",
                               minWidth: "200px",
                             }}
                           >
@@ -331,10 +311,7 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
                             ))}
                           </select>
                           {mapping[f.key] !== undefined && (
-                            <span style={{
-                              marginLeft: "0.5rem", fontSize: "0.75rem",
-                              color: "var(--accent)", fontStyle: "italic",
-                            }}>
+                            <span style={{ marginLeft: "8px", fontSize: "12px", color: "#1B4F8A", fontStyle: "italic" }}>
                               Auto-matched
                             </span>
                           )}
@@ -345,25 +322,25 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
                 </table>
               </div>
 
-              {/* Sample preview */}
+              {/* Sample rows */}
               <div>
-                <p style={{ margin: "0 0 0.5rem", fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                <p style={{ margin: "0 0 8px", fontSize: "12px", fontWeight: "600", color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                   First 3 rows from your file
                 </p>
-                <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: "8px" }}>
-                  <table style={{ borderCollapse: "collapse", fontSize: "0.8rem", minWidth: "100%" }}>
+                <div style={{ overflowX: "auto", border: "1px solid #E5E7EB", borderRadius: "8px" }}>
+                  <table style={{ borderCollapse: "collapse", fontSize: "12px", minWidth: "100%" }}>
                     <thead>
-                      <tr style={{ background: "var(--surface-subtle)", borderBottom: "1px solid var(--border)" }}>
+                      <tr style={{ background: "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
                         {csvData.headers.map((h, i) => (
-                          <th key={i} style={{ padding: "0.5rem 0.75rem", textAlign: "left", whiteSpace: "nowrap", color: "var(--text-muted)", fontWeight: 600 }}>{h}</th>
+                          <th key={i} style={{ padding: "8px 12px", textAlign: "left", whiteSpace: "nowrap", color: "#6B7280", fontWeight: "600" }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {csvData.rows.slice(0, 3).map((row, i) => (
-                        <tr key={i} style={{ borderBottom: i < 2 ? "1px solid var(--border)" : "none" }}>
+                        <tr key={i} style={{ borderBottom: i < 2 ? "1px solid #F3F4F6" : "none" }}>
                           {csvData.headers.map((_, j) => (
-                            <td key={j} style={{ padding: "0.5rem 0.75rem", whiteSpace: "nowrap", color: "var(--text-secondary)" }}>
+                            <td key={j} style={{ padding: "8px 12px", whiteSpace: "nowrap", color: "#374151" }}>
                               {row[j] || ""}
                             </td>
                           ))}
@@ -378,17 +355,16 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
 
           {/* Step 2: Preview */}
           {step === 2 && !result && (
-            <div style={{ display: "grid", gap: "1rem" }}>
-              <div style={{ display: "flex", gap: "0.75rem" }}>
+            <div style={{ display: "grid", gap: "16px" }}>
+              <div style={{ display: "flex", gap: "12px" }}>
                 <StatChip label="Total rows" value={preview.length} />
                 <StatChip label="Ready to import" value={validCount} accent />
                 {errorCount > 0 && <StatChip label="Will be skipped" value={errorCount} danger />}
               </div>
-
-              <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: "10px" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+              <div style={{ overflowX: "auto", border: "1px solid #E5E7EB", borderRadius: "10px" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
                   <thead>
-                    <tr style={{ background: "var(--surface-subtle)", borderBottom: "1px solid var(--border)" }}>
+                    <tr style={{ background: "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
                       <th style={thStyle}>Name</th>
                       <th style={thStyle}>DOB</th>
                       <th style={thStyle}>Tier</th>
@@ -400,19 +376,19 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
                   <tbody>
                     {preview.map((r, i) => (
                       <tr key={i} style={{
-                        borderBottom: i < preview.length - 1 ? "1px solid var(--border)" : "none",
-                        background: r._errors.length ? "#fff5f5" : "transparent",
+                        borderBottom: i < preview.length - 1 ? "1px solid #F3F4F6" : "none",
+                        background: r._errors.length ? "#FFF5F5" : "transparent",
                       }}>
                         <td style={tdStyle}>{(r.first_name || "") + " " + (r.last_name || "")}</td>
-                        <td style={tdStyle}>{r.date_of_birth || "—"}</td>
-                        <td style={tdStyle}>{r.coverage_tier ? TIER_LABELS[r.coverage_tier] : "—"}</td>
-                        <td style={tdStyle}>{r.gender || "—"}</td>
-                        <td style={tdStyle}>{r.zip || "—"}</td>
+                        <td style={tdStyle}>{r.date_of_birth || "-"}</td>
+                        <td style={tdStyle}>{r.coverage_tier ? TIER_LABELS[r.coverage_tier] : "-"}</td>
+                        <td style={tdStyle}>{r.gender || "-"}</td>
+                        <td style={tdStyle}>{r.zip_code || "-"}</td>
                         <td style={tdStyle}>
                           {r._errors.length === 0 ? (
-                            <span style={{ color: "#16a34a", fontSize: "0.75rem", fontWeight: 600 }}>Ready</span>
+                            <span style={{ color: "#16A34A", fontSize: "12px", fontWeight: "600" }}>Ready</span>
                           ) : (
-                            <span title={r._errors.join(", ")} style={{ color: "#dc2626", fontSize: "0.75rem", fontWeight: 600, cursor: "help" }}>
+                            <span title={r._errors.join(", ")} style={{ color: "#DC2626", fontSize: "12px", fontWeight: "600", cursor: "help" }}>
                               Error ({r._errors.length})
                             </span>
                           )}
@@ -423,8 +399,8 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
                 </table>
               </div>
               {errorCount > 0 && (
-                <p style={{ margin: 0, fontSize: "0.8125rem", color: "var(--text-muted)" }}>
-                  Hover over "Error" in the Status column to see what went wrong. Those rows will be skipped — you can add them manually after import.
+                <p style={{ margin: 0, fontSize: "13px", color: "#6B7280" }}>
+                  Hover over "Error" in the Status column to see what went wrong. Those rows will be skipped.
                 </p>
               )}
             </div>
@@ -432,25 +408,24 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
 
           {/* Result */}
           {result && (
-            <div style={{ textAlign: "center", padding: "2rem 1rem" }}>
+            <div style={{ textAlign: "center", padding: "32px 16px" }}>
               {result.success ? (
                 <>
-                  <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>+</div>
-                  <h3 style={{ margin: "0 0 0.5rem", fontSize: "1.25rem", fontWeight: 700 }}>Import Complete</h3>
-                  <p style={{ margin: "0 0 0.25rem", color: "var(--text-muted)" }}>
+                  <div style={{ fontSize: "48px", marginBottom: "16px" }}>+</div>
+                  <h3 style={{ margin: "0 0 8px", fontSize: "20px", fontWeight: "700", color: "#111827" }}>Import Complete</h3>
+                  <p style={{ margin: "0 0 4px", color: "#6B7280", fontSize: "14px" }}>
                     {result.imported} {result.imported === 1 ? "employee" : "employees"} imported successfully.
                   </p>
                   {result.skipped > 0 && (
-                    <p style={{ margin: 0, color: "#dc2626", fontSize: "0.875rem" }}>
+                    <p style={{ margin: 0, color: "#DC2626", fontSize: "13px" }}>
                       {result.skipped} {result.skipped === 1 ? "row was" : "rows were"} skipped due to errors.
                     </p>
                   )}
                 </>
               ) : (
                 <>
-                  <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>!</div>
-                  <h3 style={{ margin: "0 0 0.5rem", fontSize: "1.25rem", fontWeight: 700, color: "#dc2626" }}>Import Failed</h3>
-                  <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>{result.message}</p>
+                  <h3 style={{ margin: "0 0 8px", fontSize: "20px", fontWeight: "700", color: "#DC2626" }}>Import Failed</h3>
+                  <p style={{ color: "#6B7280", fontSize: "14px" }}>{result.message}</p>
                 </>
               )}
             </div>
@@ -459,47 +434,35 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
 
         {/* Footer */}
         <div style={{
-          padding: "1.125rem 1.75rem", borderTop: "1px solid var(--border)",
+          padding: "16px 24px", borderTop: "1px solid #E5E7EB",
           display: "flex", justifyContent: "space-between", alignItems: "center",
-          background: "var(--surface-subtle)", flexShrink: 0,
+          background: "#F9FAFB", flexShrink: 0,
         }}>
           <div>
             {step > 0 && !result && (
-              <button onClick={() => setStep(s => s - 1)} style={secondaryBtnStyle}>
-                Back
-              </button>
+              <button onClick={() => setStep(s => s - 1)} style={secondaryBtn}>Back</button>
             )}
           </div>
-          <div style={{ display: "flex", gap: "0.75rem" }}>
-            <button onClick={onClose} style={secondaryBtnStyle}>
-              {result ? "Close" : "Cancel"}
-            </button>
+          <div style={{ display: "flex", gap: "12px" }}>
+            <button onClick={onClose} style={secondaryBtn}>{result ? "Close" : "Cancel"}</button>
             {step === 1 && (
-              <button onClick={handleProceedToPreview} style={primaryBtnStyle(false)}>
-                Preview Import
-              </button>
+              <button onClick={handleProceedToPreview} style={primaryBtn}>Preview Import</button>
             )}
             {step === 2 && !result && (
-              <button onClick={handleImport} disabled={importing || validCount === 0} style={primaryBtnStyle(importing || validCount === 0)}>
+              <button onClick={handleImport} disabled={importing || validCount === 0} style={{
+                ...primaryBtn,
+                background: importing || validCount === 0 ? "#93C5FD" : "#1B4F8A",
+                cursor: importing || validCount === 0 ? "not-allowed" : "pointer",
+              }}>
                 {importing ? "Importing..." : "Import " + validCount + " " + (validCount === 1 ? "Employee" : "Employees")}
               </button>
             )}
             {result && result.success && (
-              <button onClick={() => { onImported(); onClose(); }} style={primaryBtnStyle(false)}>
-                Done
-              </button>
+              <button onClick={() => { onImported(); onClose(); }} style={primaryBtn}>Done</button>
             )}
           </div>
         </div>
       </div>
-
-      <style>{`
-        @keyframes modalIn {
-          from { opacity: 0; transform: translateY(12px) scale(0.98); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        select:focus { border-color: var(--accent) !important; box-shadow: 0 0 0 3px var(--accent-subtle); }
-      `}</style>
     </div>
   );
 }
@@ -507,41 +470,38 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
 function StatChip({ label, value, accent, danger }) {
   return (
     <div style={{
-      padding: "0.625rem 1rem", borderRadius: "8px",
-      border: "1px solid " + (accent ? "var(--accent)" : danger ? "#fca5a5" : "var(--border)"),
-      background: accent ? "var(--accent-subtle)" : danger ? "#fff5f5" : "var(--surface-subtle)",
+      padding: "12px 16px", borderRadius: "8px",
+      border: "1px solid " + (accent ? "#1B4F8A" : danger ? "#FCA5A5" : "#E5E7EB"),
+      background: accent ? "#EFF6FF" : danger ? "#FFF5F5" : "#F9FAFB",
     }}>
-      <div style={{ fontSize: "1.25rem", fontWeight: 700, color: accent ? "var(--accent)" : danger ? "#dc2626" : "var(--text-primary)" }}>
+      <div style={{ fontSize: "20px", fontWeight: "700", color: accent ? "#1B4F8A" : danger ? "#DC2626" : "#111827" }}>
         {value}
       </div>
-      <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{label}</div>
+      <div style={{ fontSize: "12px", color: "#6B7280" }}>{label}</div>
     </div>
   );
 }
 
 const thStyle = {
-  padding: "0.625rem 0.875rem", textAlign: "left",
-  fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)",
-  textTransform: "uppercase", letterSpacing: "0.06em", whiteSpace: "nowrap",
+  padding: "10px 14px", textAlign: "left",
+  fontSize: "12px", fontWeight: "600", color: "#6B7280",
+  textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap",
 };
 
 const tdStyle = {
-  padding: "0.625rem 0.875rem", color: "var(--text-secondary)", whiteSpace: "nowrap",
+  padding: "10px 14px", color: "#374151", whiteSpace: "nowrap",
 };
 
-const secondaryBtnStyle = {
-  padding: "0.5625rem 1.25rem", borderRadius: "8px",
-  border: "1.5px solid var(--border)", background: "transparent",
-  color: "var(--text-secondary)", fontSize: "0.9375rem",
-  fontWeight: 500, cursor: "pointer", fontFamily: "inherit",
+const secondaryBtn = {
+  padding: "9px 20px", borderRadius: "8px",
+  border: "1px solid #D1D5DB", background: "white",
+  color: "#374151", fontSize: "14px",
+  fontWeight: "500", cursor: "pointer", fontFamily: "inherit",
 };
 
-function primaryBtnStyle(disabled) {
-  return {
-    padding: "0.5625rem 1.5rem", borderRadius: "8px", border: "none",
-    background: disabled ? "var(--accent-muted)" : "var(--accent)",
-    color: "#fff", fontSize: "0.9375rem", fontWeight: 600,
-    cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit",
-  };
-}
-
+const primaryBtn = {
+  padding: "9px 20px", borderRadius: "8px", border: "none",
+  background: "#1B4F8A", color: "white",
+  fontSize: "14px", fontWeight: "600",
+  cursor: "pointer", fontFamily: "inherit",
+};
