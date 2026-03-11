@@ -240,6 +240,7 @@ export default function Census() {
                 <tr style={{ borderBottom: "1px solid #E5E7EB", background: "#F9FAFB" }}>
                   {[
                     { label: "Last Name", field: "last_name" },
+                    { label: "Relationship", field: "relationship" },
                     { label: "First Name", field: "first_name" },
                     { label: "DOB", field: "date_of_birth" },
                     { label: "Age", field: "age" },
@@ -269,6 +270,7 @@ export default function Census() {
                       onMouseLeave={ev => ev.currentTarget.style.background = "transparent"}
                     >
                       <td style={{ padding: "12px 16px", fontWeight: "600", fontSize: "14px", color: "#111827" }}>{e.last_name}</td>
+                      <td style={{ padding: "12px 16px", fontSize: "14px", color: "#374151" }}>{e.relationship || "-"}</td>
                       <td style={{ padding: "12px 16px", fontSize: "14px", color: "#374151" }}>{e.first_name}</td>
                       <td style={{ padding: "12px 16px", fontSize: "14px", color: "#6B7280", fontFamily: "monospace" }}>{formatDate(e.date_of_birth)}</td>
                       <td style={{ padding: "12px 16px", fontSize: "14px", color: "#6B7280" }}>{calcAge(e.date_of_birth) ?? "-"}</td>
@@ -400,3 +402,4 @@ const primaryBtn = {
   fontSize: "14px", fontWeight: "600",
   cursor: "pointer", fontFamily: "inherit",
 };
+

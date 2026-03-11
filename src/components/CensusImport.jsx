@@ -7,6 +7,7 @@ const OUR_FIELDS = [
   { key: "last_name", label: "Last Name", required: true },
   { key: "date_of_birth", label: "Date of Birth", required: true },
   { key: "coverage_tier", label: "Coverage Tier", required: true },
+  { key: "relationship", label: "Relationship", required: true },
   { key: "gender", label: "Gender", required: false },
   { key: "zip_code", label: "ZIP Code", required: false },
 ];
@@ -23,11 +24,23 @@ const TIER_MAP = {
   "employee + family": "EE+FAM", "employee+family": "EE+FAM", "family": "EE+FAM",
 };
 
+const RELATIONSHIP_MAP = {
+  "employee": "Employee", "ee": "Employee", "self": "Employee", "subscriber": "Employee",
+  "spouse": "Spouse", "husband": "Spouse", "wife": "Spouse", "domestic partner": "Spouse", "partner": "Spouse",
+  "child": "Child", "dependent": "Child", "son": "Child", "daughter": "Child",
+  "stepchild": "Child", "step child": "Child",
+};
+
 const TIER_LABELS = { "EE": "EE Only", "EE+SP": "EE + Spouse", "EE+CH": "EE + Child(ren)", "EE+FAM": "EE + Family" };
 
 function normalizeTier(val) {
   if (!val) return null;
   return TIER_MAP[val.trim().toLowerCase()] || null;
+}
+
+function normalizeRelationship(val) {
+  if (!val) return null;
+  return RELATIONSHIP_MAP[val.trim().toLowerCase()] || null;
 }
 
 function parseDOB(val) {
@@ -48,6 +61,7 @@ function autoSuggestMapping(headers) {
     last_name: ["last", "lastname", "last name", "lname", "surname", "family name"],
     date_of_birth: ["dob", "date of birth", "birth date", "birthdate", "birthday", "birth_date"],
     coverage_tier: ["tier", "coverage", "coverage tier", "plan", "election", "coverage type", "dependent tier"],
+    relationship: ["relationship", "relation", "member type", "member relationship", "type"],
     gender: ["gender", "sex"],
     zip_code: ["zip", "zipcode", "zip code", "postal", "postal code"],
   };
@@ -131,9 +145,15 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
         } else if (f.key === "coverage_tier") {
           entry[f.key] = normalizeTier(raw);
           if (f.required && !entry[f.key]) entry._errors.push("Unrecognized Coverage Tier: \"" + raw + "\"");
+        } else if (f.key === "relationship") {
+          entry[f.key] = normalizeRelationship(raw);
+          if (f.required && !entry[f.key]) entry._errors.push("Unrecognized Relationship: \"" + raw + "\"");
         } else if (f.key === "gender") {
           const g = raw.toUpperCase();
           entry[f.key] = ["M", "F", "X"].includes(g) ? g : (raw.toLowerCase().startsWith("m") ? "M" : raw.toLowerCase().startsWith("f") ? "F" : null);
+        } else if (f.key === "zip_code") {
+          // Accept any zip, not just CA — needed for out-of-state dependents on PPO plans
+          entry[f.key] = raw || null;
         } else {
           entry[f.key] = raw || null;
           if (f.required && !raw) entry._errors.push("Missing " + f.label);
@@ -163,6 +183,7 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
       last_name: r.last_name,
       date_of_birth: r.date_of_birth,
       coverage_tier: r.coverage_tier,
+      relationship: r.relationship,
       gender: r.gender || null,
       zip_code: r.zip_code || null,
     }));
@@ -228,9 +249,7 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
                 fontSize: "13px", fontWeight: i === step ? 600 : 400,
                 color: i === step ? "#111827" : "#9CA3AF",
               }}>{s}</span>
-              {i < STEPS.length - 1 && (
-                <span style={{ color: "#D1D5DB", marginLeft: "4px" }}>—</span>
-              )}
+              {i < STEPS.length - 1 && <span style={{ color: "#D1D5DB", marginLeft: "4px" }}>—</span>}
             </div>
           ))}
         </div>
@@ -284,6 +303,12 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
                       <tr key={f.key} style={{ borderBottom: i < OUR_FIELDS.length - 1 ? "1px solid #F3F4F6" : "none" }}>
                         <td style={{ padding: "12px 16px", fontSize: "14px", fontWeight: "500", color: "#111827" }}>
                           {f.label}{f.required && <span style={{ color: "#EF4444", marginLeft: "2px" }}>*</span>}
+                          {f.key === "zip_code" && (
+                            <div style={{ fontSize: "11px", color: "#9CA3AF", marginTop: "2px" }}>Any state accepted</div>
+                          )}
+                          {f.key === "relationship" && (
+                            <div style={{ fontSize: "11px", color: "#9CA3AF", marginTop: "2px" }}>Employee, Spouse, or Child</div>
+                          )}
                         </td>
                         <td style={{ padding: "12px 16px" }}>
                           <select
@@ -367,6 +392,7 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
                     <tr style={{ background: "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
                       <th style={thStyle}>Name</th>
                       <th style={thStyle}>DOB</th>
+                      <th style={thStyle}>Relationship</th>
                       <th style={thStyle}>Tier</th>
                       <th style={thStyle}>Gender</th>
                       <th style={thStyle}>ZIP</th>
@@ -381,6 +407,7 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
                       }}>
                         <td style={tdStyle}>{(r.first_name || "") + " " + (r.last_name || "")}</td>
                         <td style={tdStyle}>{r.date_of_birth || "-"}</td>
+                        <td style={tdStyle}>{r.relationship || "-"}</td>
                         <td style={tdStyle}>{r.coverage_tier ? TIER_LABELS[r.coverage_tier] : "-"}</td>
                         <td style={tdStyle}>{r.gender || "-"}</td>
                         <td style={tdStyle}>{r.zip_code || "-"}</td>
@@ -411,7 +438,6 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
             <div style={{ textAlign: "center", padding: "32px 16px" }}>
               {result.success ? (
                 <>
-                  <div style={{ fontSize: "48px", marginBottom: "16px" }}>+</div>
                   <h3 style={{ margin: "0 0 8px", fontSize: "20px", fontWeight: "700", color: "#111827" }}>Import Complete</h3>
                   <p style={{ margin: "0 0 4px", color: "#6B7280", fontSize: "14px" }}>
                     {result.imported} {result.imported === 1 ? "employee" : "employees"} imported successfully.
@@ -488,9 +514,7 @@ const thStyle = {
   textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap",
 };
 
-const tdStyle = {
-  padding: "10px 14px", color: "#374151", whiteSpace: "nowrap",
-};
+const tdStyle = { padding: "10px 14px", color: "#374151", whiteSpace: "nowrap" };
 
 const secondaryBtn = {
   padding: "9px 20px", borderRadius: "8px",
