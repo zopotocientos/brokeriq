@@ -400,6 +400,11 @@ export default function Census() {
           groupZip={group.zip_code}
           onClose={() => { setShowAddModal(false); setEditingMember(null); }}
           onSaved={() => { setShowAddModal(false); setEditingMember(null); fetchData(); }}
+          onAddDependent={(eid) => {
+            setShowAddModal(false);
+            setEditingMember({ eid, relationship: "Child", coverage_tier: "EE" });
+            setShowAddModal(true);
+          }}
         />
       )}
 
@@ -503,6 +508,7 @@ function ActionBtn({ label, onClick, danger }) {
 const crumbBtn = { background: "none", border: "none", cursor: "pointer", color: "#6B7280", fontSize: "13px", padding: 0, fontFamily: "inherit" };
 const secondaryBtn = { padding: "9px 18px", borderRadius: "8px", border: "1px solid #D1D5DB", background: "white", color: "#374151", fontSize: "14px", fontWeight: "500", cursor: "pointer", fontFamily: "inherit" };
 const primaryBtn = { padding: "9px 18px", borderRadius: "8px", border: "none", background: "#1B4F8A", color: "white", fontSize: "14px", fontWeight: "600", cursor: "pointer", fontFamily: "inherit" };
+
 
 
 

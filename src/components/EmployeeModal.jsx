@@ -28,7 +28,7 @@ const INITIAL_FORM = {
   relationship: "Employee", zip_code: "",
 };
 
-export default function EmployeeModal({ employee, groupZip, groupId, onClose, onSaved }) {
+export default function EmployeeModal({ employee, groupZip, groupId, onClose, onSaved, onAddDependent }) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
@@ -255,6 +255,14 @@ export default function EmployeeModal({ employee, groupZip, groupId, onClose, on
             background: "transparent", color: "#374151", fontSize: "14px",
             fontWeight: "500", cursor: "pointer", fontFamily: "inherit",
           }}>Cancel</button>
+          {isEditing && employee?.relationship === "Employee" && onAddDependent && (
+            <button onClick={() => onAddDependent(employee.eid)} style={{
+              padding: "9px 20px", borderRadius: "8px",
+              border: "1px solid #1B4F8A", background: "#EFF6FF",
+              color: "#1B4F8A", fontSize: "14px", fontWeight: "600",
+              cursor: "pointer", fontFamily: "inherit",
+            }}>+ Add Dependent</button>
+          )}
           <button onClick={handleSubmit} disabled={saving} style={{
             padding: "9px 20px", borderRadius: "8px", border: "none",
             background: saving ? "#93C5FD" : "#1B4F8A", color: "white",
@@ -280,3 +288,5 @@ function Field({ label, children, error, required }) {
     </div>
   );
 }
+
+
