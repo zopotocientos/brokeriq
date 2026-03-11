@@ -170,8 +170,9 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
           const g = raw.toUpperCase();
           entry[f.key] = ["M", "F", "X"].includes(g) ? g : (raw.toLowerCase().startsWith("m") ? "M" : raw.toLowerCase().startsWith("f") ? "F" : null);
         } else if (f.key === "zip_code") {
-          // Accept any zip, not just CA — needed for out-of-state dependents on PPO plans
-          entry[f.key] = raw || null;
+          // Accept any zip, strip ZIP+4 format (e.g. 90210-1234 -> 90210)
+          const zipClean = raw ? raw.split("-")[0].trim() : null;
+          entry[f.key] = zipClean || null;
         } else {
           entry[f.key] = raw || null;
           if (f.required && !raw) entry._errors.push("Missing " + f.label);
@@ -547,5 +548,6 @@ const primaryBtn = {
   fontSize: "14px", fontWeight: "600",
   cursor: "pointer", fontFamily: "inherit",
 };
+
 
 
