@@ -16,7 +16,11 @@ const GENDERS = [
   { value: "", label: "Prefer not to say" },
 ];
 
-const RELATIONSHIPS = ["Employee", "Spouse", "Child"];
+const RELATIONSHIPS = [
+  "Employee", "Spouse", "Domestic Partner",
+  "Child", "Child-Legal Guardian", "Child-Adopted",
+  "Child-Step", "Child-Domestic Partner",
+];
 
 const INITIAL_FORM = {
   first_name: "",
@@ -277,3 +281,4 @@ function Field({ label, children, error, required }) {
     </div>
   );
 }
+

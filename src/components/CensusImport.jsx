@@ -13,22 +13,40 @@ const OUR_FIELDS = [
 ];
 
 const TIER_MAP = {
+  // EE Only
   "ee": "EE", "employee": "EE", "employee only": "EE", "ee only": "EE", "single": "EE",
+  // EE + Spouse
   "ee+sp": "EE+SP", "ee + sp": "EE+SP", "ee+spouse": "EE+SP", "ee + spouse": "EE+SP",
   "employee + spouse": "EE+SP", "employee+spouse": "EE+SP", "two party": "EE+SP",
   "2-party": "EE+SP", "2 party": "EE+SP", "couple": "EE+SP",
+  "employee + domestic partner": "EE+SP", "ee + domestic partner": "EE+SP",
+  // EE + Child (any number of children, no spouse)
   "ee+ch": "EE+CH", "ee + ch": "EE+CH", "ee+child": "EE+CH", "ee + child": "EE+CH",
   "ee+children": "EE+CH", "ee + children": "EE+CH", "employee + child": "EE+CH",
   "employee+child": "EE+CH", "employee + children": "EE+CH", "parent+child": "EE+CH",
+  "employee + 1 child": "EE+CH", "employee + 2 children": "EE+CH",
+  "employee + 3 children": "EE+CH", "employee + 4 children": "EE+CH",
+  "employee + 5 children": "EE+CH", "ee + 1 child": "EE+CH", "ee + 2 children": "EE+CH",
+  "ee + 3 children": "EE+CH", "ee+1 child": "EE+CH", "ee+2 children": "EE+CH",
+  // EE + Family (spouse + any children)
   "ee+fam": "EE+FAM", "ee + fam": "EE+FAM", "ee+family": "EE+FAM", "ee + family": "EE+FAM",
   "employee + family": "EE+FAM", "employee+family": "EE+FAM", "family": "EE+FAM",
+  "employee + spouse + 1 child": "EE+FAM", "employee + spouse + 2 children": "EE+FAM",
+  "employee + spouse + 3 children": "EE+FAM", "employee + spouse + 4 children": "EE+FAM",
+  "employee + spouse + 5 children": "EE+FAM", "ee + spouse + 1 child": "EE+FAM",
+  "ee + spouse + 2 children": "EE+FAM", "ee + spouse + 3 children": "EE+FAM",
+  "ee+spouse+child": "EE+FAM", "ee + spouse + child": "EE+FAM",
 };
 
 const RELATIONSHIP_MAP = {
-  "employee": "Employee", "ee": "Employee", "self": "Employee", "subscriber": "Employee",
-  "spouse": "Spouse", "husband": "Spouse", "wife": "Spouse", "domestic partner": "Spouse", "partner": "Spouse",
+  "employee": "Employee", "ee": "Employee", "self": "Employee", "subscriber": "Employee", "employee only": "Employee",
+  "spouse": "Spouse", "husband": "Spouse", "wife": "Spouse",
+  "domestic partner": "Domestic Partner", "dp": "Domestic Partner", "domestic_partner": "Domestic Partner",
   "child": "Child", "dependent": "Child", "son": "Child", "daughter": "Child",
-  "stepchild": "Child", "step child": "Child",
+  "child - legal guardian": "Child-Legal Guardian", "child legal guardian": "Child-Legal Guardian", "legal guardian": "Child-Legal Guardian", "guardian": "Child-Legal Guardian",
+  "child - adopted": "Child-Adopted", "child adopted": "Child-Adopted", "adopted": "Child-Adopted", "adopted child": "Child-Adopted",
+  "child - step": "Child-Step", "child step": "Child-Step", "stepchild": "Child-Step", "step child": "Child-Step", "step-child": "Child-Step",
+  "child - domestic partner": "Child-Domestic Partner", "child domestic partner": "Child-Domestic Partner", "dp child": "Child-Domestic Partner",
 };
 
 const TIER_LABELS = { "EE": "EE Only", "EE+SP": "EE + Spouse", "EE+CH": "EE + Child(ren)", "EE+FAM": "EE + Family" };
@@ -529,3 +547,5 @@ const primaryBtn = {
   fontSize: "14px", fontWeight: "600",
   cursor: "pointer", fontFamily: "inherit",
 };
+
+
