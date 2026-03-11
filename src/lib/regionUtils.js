@@ -7,39 +7,43 @@ export async function detectRegion(county, zip) {
   if (county === 'Los Angeles') {
     if (!zip || zip.length < 5) return null;
 
-    const { data: zipRow } = await supabase
+    const { data: zipRow, error: zipErr } = await supabase
       .from('ca_la_region15_zips')
       .select('zip_code')
       .eq('zip_code', zip.trim())
       .maybeSingle();
 
+    console.log('LA zip lookup:', { zipRow, zipErr });
+
     const regionNumber = zipRow ? 15 : 16;
 
-    const { data: region } = await supabase
+    const { data: region, error: regionErr } = await supabase
       .from('ca_regions')
       .select('id, region_number, region_name')
       .eq('region_number', regionNumber)
       .maybeSingle();
 
+    console.log('LA region lookup:', { region, regionErr });
     return region || null;
   }
 
-  // Step 1: get region_number from ca_counties
-  const { data: countyRow } = await supabase
+  const { data: countyRow, error: countyErr } = await supabase
     .from('ca_counties')
     .select('region_number')
     .eq('county_name', county)
     .maybeSingle();
 
+  console.log('County lookup:', { county, countyRow, countyErr });
+
   if (!countyRow?.region_number) return null;
 
-  // Step 2: get full region record from ca_regions
-  const { data: region } = await supabase
+  const { data: region, error: regionErr } = await supabase
     .from('ca_regions')
     .select('id, region_number, region_name')
     .eq('region_number', countyRow.region_number)
     .maybeSingle();
 
+  console.log('Region lookup:', { region, regionErr });
   return region || null;
 }
 

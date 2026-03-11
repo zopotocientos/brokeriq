@@ -4,6 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import EmployeeModal from "../components/EmployeeModal";
 import CensusImport from "../components/CensusImport";
+import Layout from "../components/Layout";
 
 const TIER_LABELS = {
   "EE": "EE Only",
@@ -121,19 +122,19 @@ export default function Census() {
   };
 
   if (loading) return (
-    <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>
+    <Layout><div style={{ minHeight: "100vh", background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>
       Loading census...
     </div>
   );
 
   if (!group) return (
-    <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>
+    <Layout><div style={{ minHeight: "100vh", background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>
       Group not found.
     </div>
   );
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text-primary)" }}>
+    <Layout><div style={{ minHeight: "100vh", background: "#F3F4F6", color: "var(--text-primary)" }}>
 
       <div style={{ borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
         <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "1.5rem 2rem" }}>
@@ -334,7 +335,7 @@ export default function Census() {
           </div>
         </div>
       )}
-    </div>
+    </div></Layout>
   );
 }
 
@@ -384,3 +385,4 @@ const primaryBtnStyleObj = {
   border: "none", borderRadius: "8px",
   fontSize: "0.9rem", fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
 };
+

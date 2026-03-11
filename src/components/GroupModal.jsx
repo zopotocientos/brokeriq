@@ -30,6 +30,9 @@ export default function GroupModal({ group, onClose, onSaved }) {
       if (group.region_number) {
         setRegion({ region_number: group.region_number, region_name: group.region_name });
       }
+    } else {
+      setForm(INITIAL_FORM);
+      setRegion(null);
     }
   }, [group]);
 
@@ -99,84 +102,111 @@ export default function GroupModal({ group, onClose, onSaved }) {
 
   const isEditing = !!group?.id;
 
+  const inputStyle = (hasError) => ({
+    width: "100%", padding: "9px 12px",
+    borderRadius: "8px",
+    border: "1px solid " + (hasError ? "#EF4444" : "#D1D5DB"),
+    background: "white", color: "#111827",
+    fontSize: "14px", outline: "none",
+    boxSizing: "border-box", fontFamily: "Arial, sans-serif",
+    transition: "border-color 0.15s",
+  });
+
   return (
     <div onClick={handleBackdrop} style={{
       position: "fixed", inset: 0, zIndex: 50,
-      background: "rgba(10, 15, 30, 0.6)",
-      backdropFilter: "blur(4px)",
+      background: "rgba(0,0,0,0.4)",
+      backdropFilter: "blur(2px)",
       display: "flex", alignItems: "center", justifyContent: "center",
-      padding: "1rem",
+      padding: "16px",
     }}>
       <div style={{
-        background: "var(--surface)",
-        border: "1px solid var(--border)",
-        borderRadius: "16px",
-        width: "100%", maxWidth: "540px",
-        boxShadow: "0 24px 64px rgba(0,0,0,0.25)",
+        background: "white",
+        borderRadius: "12px",
+        width: "100%", maxWidth: "520px",
+        boxShadow: "0 20px 48px rgba(0,0,0,0.2)",
         overflow: "hidden",
-        animation: "modalIn 0.2s ease-out",
       }}>
+
+        {/* Header */}
         <div style={{
-          padding: "1.5rem 1.75rem 1.25rem",
-          borderBottom: "1px solid var(--border)",
+          padding: "20px 24px 16px",
+          borderBottom: "1px solid #E5E7EB",
           display: "flex", alignItems: "center", justifyContent: "space-between",
         }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: "1.125rem", fontWeight: 600, color: "var(--text-primary)" }}>
+            <h2 style={{ margin: 0, fontSize: "18px", fontWeight: "700", color: "#111827" }}>
               {isEditing ? "Edit Group" : "New Employer Group"}
             </h2>
-            <p style={{ margin: "0.25rem 0 0", fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+            <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#6B7280" }}>
               {isEditing ? "Editing " + group.employer_name : "Enter employer details to get started"}
             </p>
           </div>
           <button onClick={onClose} style={{
             background: "none", border: "none", cursor: "pointer",
-            color: "var(--text-muted)", fontSize: "1.25rem",
-            padding: "0.25rem", borderRadius: "6px",
-          }}>X</button>
+            color: "#9CA3AF", fontSize: "20px", lineHeight: 1,
+            padding: "4px", borderRadius: "6px", fontFamily: "inherit",
+          }}
+            onMouseEnter={e => e.currentTarget.style.color = "#374151"}
+            onMouseLeave={e => e.currentTarget.style.color = "#9CA3AF"}
+          >X</button>
         </div>
 
-        <div style={{ padding: "1.5rem 1.75rem" }}>
-          <div style={{ display: "grid", gap: "1.125rem" }}>
+        {/* Body */}
+        <div style={{ padding: "20px 24px" }}>
+          <div style={{ display: "grid", gap: "16px" }}>
 
+            {/* Group Name */}
             <Field label="Group Name" error={errors.employer_name} required>
               <input name="employer_name" value={form.employer_name} onChange={handleChange}
-                placeholder="e.g. Acme Corporation" style={inputStyle(errors.employer_name)} />
+                placeholder="e.g. Acme Corporation" style={inputStyle(errors.employer_name)}
+                onFocus={e => e.target.style.borderColor = "#1B4F8A"}
+                onBlur={e => e.target.style.borderColor = errors.employer_name ? "#EF4444" : "#D1D5DB"}
+              />
             </Field>
 
-            <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: "0.875rem" }}>
+            {/* ZIP + County */}
+            <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: "12px" }}>
               <Field label="ZIP Code" error={errors.zip_code} required>
                 <input name="zip_code" value={form.zip_code} onChange={handleChange}
-                  placeholder="90210" maxLength={5} style={inputStyle(errors.zip_code)} />
+                  placeholder="90210" maxLength={5} style={inputStyle(errors.zip_code)}
+                  onFocus={e => e.target.style.borderColor = "#1B4F8A"}
+                  onBlur={e => e.target.style.borderColor = errors.zip_code ? "#EF4444" : "#D1D5DB"}
+                />
               </Field>
               <Field label="County" error={errors.county} required>
-                <select name="county" value={form.county} onChange={handleChange} style={inputStyle(errors.county)}>
+                <select name="county" value={form.county} onChange={handleChange}
+                  style={inputStyle(errors.county)}
+                  onFocus={e => e.target.style.borderColor = "#1B4F8A"}
+                  onBlur={e => e.target.style.borderColor = errors.county ? "#EF4444" : "#D1D5DB"}
+                >
                   <option value="">Select county...</option>
                   {CA_COUNTIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </Field>
             </div>
 
+            {/* Region */}
             <Field label="Rating Region (auto-detected)" error={errors.region}>
               <div style={{
                 ...inputStyle(errors.region),
-                display: "flex", alignItems: "center", gap: "0.5rem",
-                background: "var(--surface-subtle)", cursor: "default",
-                color: region ? "var(--text-primary)" : "var(--text-muted)",
+                display: "flex", alignItems: "center", gap: "8px",
+                background: "#F9FAFB", cursor: "default",
+                minHeight: "40px",
               }}>
                 {regionLoading ? (
-                  <span style={{ fontSize: "0.875rem" }}>Detecting...</span>
+                  <span style={{ fontSize: "14px", color: "#9CA3AF" }}>Detecting...</span>
                 ) : region ? (
                   <>
                     <span style={{
-                      background: "var(--accent)", color: "#fff",
-                      borderRadius: "5px", padding: "1px 7px",
-                      fontSize: "0.75rem", fontWeight: 700,
+                      background: "#1B4F8A", color: "white",
+                      borderRadius: "5px", padding: "2px 8px",
+                      fontSize: "12px", fontWeight: "700",
                     }}>R{region.region_number}</span>
-                    <span style={{ fontSize: "0.875rem" }}>{region.region_name}</span>
+                    <span style={{ fontSize: "14px", color: "#374151" }}>{region.region_name}</span>
                   </>
                 ) : (
-                  <span style={{ fontSize: "0.875rem" }}>
+                  <span style={{ fontSize: "14px", color: "#9CA3AF" }}>
                     {form.county === "Los Angeles" && form.zip_code.length < 5
                       ? "Enter ZIP to resolve Los Angeles region"
                       : "Auto-detected from county and ZIP"}
@@ -185,89 +215,70 @@ export default function GroupModal({ group, onClose, onSaved }) {
               </div>
             </Field>
 
+            {/* Effective Date */}
             <Field label="Effective Date" error={errors.effective_date} required>
               <input type="date" name="effective_date" value={form.effective_date}
-                onChange={handleChange} style={inputStyle(errors.effective_date)} />
+                onChange={handleChange} style={inputStyle(errors.effective_date)}
+                onFocus={e => e.target.style.borderColor = "#1B4F8A"}
+                onBlur={e => e.target.style.borderColor = errors.effective_date ? "#EF4444" : "#D1D5DB"}
+              />
             </Field>
 
+            {/* SIC Code */}
             <Field label="SIC Code (optional)">
               <input name="sic_code" value={form.sic_code} onChange={handleChange}
                 placeholder="e.g. 7372" maxLength={4}
-                style={{ ...inputStyle(), maxWidth: "140px" }} />
+                style={{ ...inputStyle(false), maxWidth: "140px" }}
+                onFocus={e => e.target.style.borderColor = "#1B4F8A"}
+                onBlur={e => e.target.style.borderColor = "#D1D5DB"}
+              />
             </Field>
 
             {errors.submit && (
               <div style={{
-                background: "#fee2e2", border: "1px solid #fca5a5",
-                borderRadius: "8px", padding: "0.75rem 1rem",
-                color: "#991b1b", fontSize: "0.875rem",
+                background: "#FEE2E2", border: "1px solid #FCA5A5",
+                borderRadius: "8px", padding: "12px 16px",
+                color: "#991B1B", fontSize: "14px",
               }}>{errors.submit}</div>
             )}
           </div>
         </div>
 
+        {/* Footer */}
         <div style={{
-          padding: "1.125rem 1.75rem",
-          borderTop: "1px solid var(--border)",
-          display: "flex", justifyContent: "flex-end", gap: "0.75rem",
-          background: "var(--surface-subtle)",
+          padding: "16px 24px",
+          borderTop: "1px solid #E5E7EB",
+          display: "flex", justifyContent: "flex-end", gap: "12px",
+          background: "#F9FAFB",
         }}>
-          <button onClick={onClose} style={secondaryBtnStyle}>Cancel</button>
-          <button onClick={handleSubmit} disabled={saving} style={primaryBtnStyle(saving)}>
+          <button onClick={onClose} style={{
+            padding: "9px 20px", borderRadius: "8px",
+            border: "1px solid #D1D5DB", background: "transparent",
+            color: "#374151", fontSize: "14px", fontWeight: "500",
+            cursor: "pointer", fontFamily: "inherit",
+          }}>Cancel</button>
+          <button onClick={handleSubmit} disabled={saving} style={{
+            padding: "9px 20px", borderRadius: "8px", border: "none",
+            background: saving ? "#93C5FD" : "#1B4F8A",
+            color: "white", fontSize: "14px", fontWeight: "600",
+            cursor: saving ? "not-allowed" : "pointer", fontFamily: "inherit",
+          }}>
             {saving ? "Saving..." : isEditing ? "Save Changes" : "Create Group"}
           </button>
         </div>
       </div>
-
-      <style>{`
-        @keyframes modalIn {
-          from { opacity: 0; transform: translateY(12px) scale(0.98); }
-          to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        input:focus, select:focus {
-          border-color: var(--accent) !important;
-          box-shadow: 0 0 0 3px var(--accent-subtle);
-        }
-      `}</style>
     </div>
   );
 }
 
 function Field({ label, children, error, required }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
-      <label style={{ fontSize: "0.8125rem", fontWeight: 500, color: "var(--text-secondary)" }}>
-        {label}{required && <span style={{ color: "var(--accent)", marginLeft: "2px" }}>*</span>}
+    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+      <label style={{ fontSize: "13px", fontWeight: "600", color: "#374151" }}>
+        {label}{required && <span style={{ color: "#EF4444", marginLeft: "2px" }}>*</span>}
       </label>
       {children}
-      {error && <span style={{ fontSize: "0.75rem", color: "#ef4444" }}>{error}</span>}
+      {error && <span style={{ fontSize: "12px", color: "#EF4444" }}>{error}</span>}
     </div>
   );
-}
-
-function inputStyle(error) {
-  return {
-    width: "100%", padding: "0.5625rem 0.75rem",
-    borderRadius: "8px",
-    border: "1.5px solid " + (error ? "#ef4444" : "var(--border)"),
-    background: "var(--surface)", color: "var(--text-primary)",
-    fontSize: "0.9375rem", outline: "none",
-    boxSizing: "border-box", fontFamily: "inherit",
-  };
-}
-
-const secondaryBtnStyle = {
-  padding: "0.5625rem 1.25rem", borderRadius: "8px",
-  border: "1.5px solid var(--border)", background: "transparent",
-  color: "var(--text-secondary)", fontSize: "0.9375rem",
-  fontWeight: 500, cursor: "pointer", fontFamily: "inherit",
-};
-
-function primaryBtnStyle(disabled) {
-  return {
-    padding: "0.5625rem 1.5rem", borderRadius: "8px", border: "none",
-    background: disabled ? "var(--accent-muted)" : "var(--accent)",
-    color: "#fff", fontSize: "0.9375rem", fontWeight: 600,
-    cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit",
-  };
 }
