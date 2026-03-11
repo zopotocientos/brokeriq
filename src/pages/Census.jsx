@@ -42,8 +42,8 @@ export default function Census() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     const [groupRes, empRes] = await Promise.all([
-      supabase.from("groups").select("id, name, zip, county, effective_date, regions(region_number, region_name)").eq("id", id).single(),
-      supabase.from("employees").select("*").eq("group_id", id).order("last_name", { ascending: true }),
+      supabase.from("groups").select("id, employer_name, zip_code, county, region_number, effective_date").eq("id", id).single(),
+      supabase.from("census").select("*").eq("group_id", id).order("last_name", { ascending: true }),
     ]);
     if (groupRes.data) setGroup(groupRes.data);
     if (!empRes.error) setEmployees(empRes.data || []);
@@ -52,13 +52,12 @@ export default function Census() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Census summary
   const summary = TIER_ORDER.map(tier => ({
     tier,
     label: TIER_LABELS[tier],
     count: employees.filter(e => e.coverage_tier === tier).length,
   }));
-  const totalEmployees = employees.length;
+
   const avgAge = employees.length
     ? Math.round(employees.reduce((sum, e) => sum + (calcAge(e.date_of_birth) || 0), 0) / employees.length)
     : null;
@@ -97,27 +96,27 @@ export default function Census() {
   async function confirmDelete() {
     if (!deleteTarget) return;
     setDeleting(true);
-    await supabase.from("employees").delete().eq("id", deleteTarget.id);
+    await supabase.from("census").delete().eq("id", deleteTarget.id);
     setDeleting(false);
     setDeleteTarget(null);
     fetchData();
   }
 
   function formatDate(str) {
-    if (!str) return "—";
+    if (!str) return "-";
     const [y, m, d] = str.split("-");
     return m + "/" + d + "/" + y;
   }
 
   function SortIcon({ field }) {
-    if (sortField !== field) return <span style={{ opacity: 0.3, marginLeft: "4px" }}>updown</span>;
-    return <span style={{ marginLeft: "4px", color: "var(--accent)" }}>{sortDir === "asc" ? "up" : "down"}</span>;
+    if (sortField !== field) return <span style={{ opacity: 0.3, marginLeft: "4px" }}>-</span>;
+    return <span style={{ marginLeft: "4px", color: "var(--accent)" }}>{sortDir === "asc" ? "^" : "v"}</span>;
   }
 
   const tierColors = {
-    "EE": { bg: "#eff6ff", color: "#1d4ed8" },
-    "EE+SP": { bg: "#f0fdf4", color: "#16a34a" },
-    "EE+CH": { bg: "#fefce8", color: "#a16207" },
+    "EE":     { bg: "#eff6ff", color: "#1d4ed8" },
+    "EE+SP":  { bg: "#f0fdf4", color: "#16a34a" },
+    "EE+CH":  { bg: "#fefce8", color: "#a16207" },
     "EE+FAM": { bg: "#fdf4ff", color: "#9333ea" },
   };
 
@@ -136,7 +135,6 @@ export default function Census() {
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--text-primary)" }}>
 
-      {/* Page header */}
       <div style={{ borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
         <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "1.5rem 2rem" }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
@@ -146,23 +144,22 @@ export default function Census() {
                 <span style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>/</span>
                 <button onClick={() => navigate("/groups")} style={crumbBtnStyle}>Groups</button>
                 <span style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>/</span>
-                <span style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>{group.name}</span>
+                <span style={{ fontSize: "0.8125rem", color: "var(--text-secondary)" }}>{group.employer_name}</span>
               </div>
               <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 700, letterSpacing: "-0.02em" }}>
-                {group.name}
+                {group.employer_name}
               </h1>
               <div style={{ display: "flex", gap: "1rem", marginTop: "0.375rem", flexWrap: "wrap" }}>
                 <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
                   {group.county} County
                 </span>
-                {group.regions && (
+                {group.region_number && (
                   <span style={{
                     fontSize: "0.8125rem", fontWeight: 600,
-                    color: "var(--accent)",
-                    background: "var(--accent-subtle)",
+                    color: "var(--accent)", background: "var(--accent-subtle)",
                     borderRadius: "5px", padding: "1px 7px",
                   }}>
-                    Region {group.regions.region_number}
+                    Region {group.region_number}
                   </span>
                 )}
                 <span style={{ fontSize: "0.8125rem", color: "var(--text-muted)" }}>
@@ -184,9 +181,8 @@ export default function Census() {
 
       <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "2rem" }}>
 
-        {/* Summary cards */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "0.75rem", marginBottom: "1.75rem" }}>
-          <SummaryCard label="Total Employees" value={totalEmployees} bold />
+          <SummaryCard label="Total Employees" value={employees.length} />
           {summary.map(s => (
             <SummaryCard key={s.tier} label={s.label} value={s.count}
               color={tierColors[s.tier]?.color} bg={tierColors[s.tier]?.bg} />
@@ -194,7 +190,6 @@ export default function Census() {
           {avgAge && <SummaryCard label="Average Age" value={avgAge} suffix=" yrs" />}
         </div>
 
-        {/* Search */}
         <div style={{ marginBottom: "1.25rem", maxWidth: "360px" }}>
           <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search employees..."
@@ -206,7 +201,6 @@ export default function Census() {
             }} />
         </div>
 
-        {/* Employee table */}
         {filtered.length === 0 ? (
           <div style={{
             background: "var(--surface)", border: "1px solid var(--border)",
@@ -237,7 +231,7 @@ export default function Census() {
                     { label: "Age", field: "age" },
                     { label: "Gender", field: "gender" },
                     { label: "Tier", field: "tier" },
-                    { label: "ZIP", field: "zip" },
+                    { label: "ZIP", field: "zip_code" },
                   ].map(col => (
                     <th key={col.field} onClick={() => handleSort(col.field)} style={{
                       padding: "0.75rem 1rem", textAlign: "left",
@@ -255,15 +249,16 @@ export default function Census() {
                 {filtered.map((e, i) => {
                   const tc = tierColors[e.coverage_tier] || {};
                   return (
-                    <tr key={e.id} style={{ borderBottom: i < filtered.length - 1 ? "1px solid var(--border)" : "none" }}
+                    <tr key={e.id}
+                      style={{ borderBottom: i < filtered.length - 1 ? "1px solid var(--border)" : "none" }}
                       onMouseEnter={ev => ev.currentTarget.style.background = "var(--surface-hover)"}
                       onMouseLeave={ev => ev.currentTarget.style.background = "transparent"}
                     >
                       <td style={{ padding: "0.75rem 1rem", fontWeight: 600, fontSize: "0.9375rem" }}>{e.last_name}</td>
                       <td style={{ padding: "0.75rem 1rem", fontSize: "0.9rem", color: "var(--text-secondary)" }}>{e.first_name}</td>
                       <td style={{ padding: "0.75rem 1rem", fontSize: "0.9rem", color: "var(--text-secondary)", fontFamily: "monospace" }}>{formatDate(e.date_of_birth)}</td>
-                      <td style={{ padding: "0.75rem 1rem", fontSize: "0.9rem", color: "var(--text-secondary)" }}>{calcAge(e.date_of_birth) ?? "—"}</td>
-                      <td style={{ padding: "0.75rem 1rem", fontSize: "0.9rem", color: "var(--text-secondary)" }}>{e.gender || "—"}</td>
+                      <td style={{ padding: "0.75rem 1rem", fontSize: "0.9rem", color: "var(--text-secondary)" }}>{calcAge(e.date_of_birth) ?? "-"}</td>
+                      <td style={{ padding: "0.75rem 1rem", fontSize: "0.9rem", color: "var(--text-secondary)" }}>{e.gender || "-"}</td>
                       <td style={{ padding: "0.75rem 1rem" }}>
                         <span style={{
                           background: tc.bg, color: tc.color,
@@ -272,7 +267,7 @@ export default function Census() {
                         }}>{TIER_LABELS[e.coverage_tier] || e.coverage_tier}</span>
                       </td>
                       <td style={{ padding: "0.75rem 1rem", fontSize: "0.9rem", color: "var(--text-secondary)", fontFamily: "monospace" }}>
-                        {e.zip || group.zip}
+                        {e.zip_code || group.zip_code}
                       </td>
                       <td style={{ padding: "0.75rem 1rem" }}>
                         <div style={{ display: "flex", gap: "0.375rem" }}>
@@ -289,28 +284,25 @@ export default function Census() {
         )}
       </div>
 
-      {/* Add/Edit employee modal */}
       {showAddModal && (
         <EmployeeModal
           employee={editingEmployee}
           groupId={id}
-          groupZip={group.zip}
+          groupZip={group.zip_code}
           onClose={() => { setShowAddModal(false); setEditingEmployee(null); }}
           onSaved={() => { setShowAddModal(false); setEditingEmployee(null); fetchData(); }}
         />
       )}
 
-      {/* CSV Import */}
       {showImport && (
         <CensusImport
           groupId={id}
-          groupZip={group.zip}
+          groupZip={group.zip_code}
           onClose={() => setShowImport(false)}
           onImported={fetchData}
         />
       )}
 
-      {/* Delete confirmation */}
       {deleteTarget && (
         <div style={{
           position: "fixed", inset: 0, zIndex: 60,
@@ -346,17 +338,13 @@ export default function Census() {
   );
 }
 
-function SummaryCard({ label, value, bold, color, bg, suffix }) {
+function SummaryCard({ label, value, color, bg, suffix }) {
   return (
     <div style={{
       background: bg || "var(--surface)", border: "1px solid var(--border)",
       borderRadius: "10px", padding: "0.875rem 1rem",
     }}>
-      <div style={{
-        fontSize: "1.5rem", fontWeight: 700,
-        color: color || "var(--text-primary)",
-        lineHeight: 1,
-      }}>
+      <div style={{ fontSize: "1.5rem", fontWeight: 700, color: color || "var(--text-primary)", lineHeight: 1 }}>
         {value}{suffix || ""}
       </div>
       <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "0.25rem" }}>{label}</div>

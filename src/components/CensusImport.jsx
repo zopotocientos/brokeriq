@@ -174,10 +174,10 @@ export default function CensusImport({ groupId, groupZip, onClose, onImported })
       date_of_birth: r.date_of_birth,
       coverage_tier: r.coverage_tier,
       gender: r.gender || null,
-      zip: r.zip || null,
+      zip_code: r.zip || null,
     }));
 
-    const { error } = await supabase.from("employees").insert(payload);
+    const { error } = await supabase.from("census").insert(payload);
     setImporting(false);
     if (error) {
       setResult({ success: false, message: error.message });
@@ -544,3 +544,4 @@ function primaryBtnStyle(disabled) {
     cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit",
   };
 }
+

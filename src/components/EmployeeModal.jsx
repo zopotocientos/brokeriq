@@ -22,7 +22,7 @@ const INITIAL_FORM = {
   date_of_birth: "",
   gender: "",
   coverage_tier: "EE",
-  zip: "",
+  zip_code: "",
 };
 
 export default function EmployeeModal({ employee, groupZip, groupId, onClose, onSaved }) {
@@ -38,8 +38,10 @@ export default function EmployeeModal({ employee, groupZip, groupId, onClose, on
         date_of_birth: employee.date_of_birth || "",
         gender: employee.gender || "",
         coverage_tier: employee.coverage_tier || "EE",
-        zip: employee.zip || "",
+        zip_code: employee.zip_code || "",
       });
+    } else {
+      setForm(INITIAL_FORM);
     }
   }, [employee]);
 
@@ -62,7 +64,7 @@ export default function EmployeeModal({ employee, groupZip, groupId, onClose, on
       if (age > 120) e.date_of_birth = "Please enter a valid date of birth.";
     }
     if (!form.coverage_tier) e.coverage_tier = "Coverage tier is required.";
-    if (form.zip && !/^\d{5}$/.test(form.zip.trim())) e.zip = "Enter a valid 5-digit ZIP.";
+    if (form.zip_code && !/^\d{5}$/.test(form.zip_code.trim())) e.zip_code = "Enter a valid 5-digit ZIP.";
     return e;
   }
 
@@ -78,14 +80,14 @@ export default function EmployeeModal({ employee, groupZip, groupId, onClose, on
       date_of_birth: form.date_of_birth,
       gender: form.gender || null,
       coverage_tier: form.coverage_tier,
-      zip: form.zip.trim() || null,
+      zip_code: form.zip_code.trim() || null,
     };
 
     let result;
     if (employee?.id) {
-      result = await supabase.from("employees").update(payload).eq("id", employee.id).select().single();
+      result = await supabase.from("census").update(payload).eq("id", employee.id).select().single();
     } else {
-      result = await supabase.from("employees").insert(payload).select().single();
+      result = await supabase.from("census").insert(payload).select().single();
     }
 
     setSaving(false);
@@ -158,7 +160,7 @@ export default function EmployeeModal({ employee, groupZip, groupId, onClose, on
                 <input type="date" name="date_of_birth" value={form.date_of_birth}
                   onChange={handleChange} style={inputStyle(errors.date_of_birth)} />
               </Field>
-              <Field label="Gender" error={errors.gender}>
+              <Field label="Gender">
                 <select name="gender" value={form.gender} onChange={handleChange} style={inputStyle()}>
                   {GENDERS.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
                 </select>
@@ -172,8 +174,7 @@ export default function EmployeeModal({ employee, groupZip, groupId, onClose, on
                     setForm(prev => ({ ...prev, coverage_tier: t.value }));
                     if (errors.coverage_tier) setErrors(prev => ({ ...prev, coverage_tier: null }));
                   }} style={{
-                    padding: "0.5rem 0.75rem",
-                    borderRadius: "8px",
+                    padding: "0.5rem 0.75rem", borderRadius: "8px",
                     border: "1.5px solid " + (form.coverage_tier === t.value ? "var(--accent)" : "var(--border)"),
                     background: form.coverage_tier === t.value ? "var(--accent-subtle)" : "transparent",
                     color: form.coverage_tier === t.value ? "var(--accent)" : "var(--text-secondary)",
@@ -185,10 +186,10 @@ export default function EmployeeModal({ employee, groupZip, groupId, onClose, on
               </div>
             </Field>
 
-            <Field label="ZIP Code (if different from group)" error={errors.zip}>
-              <input name="zip" value={form.zip} onChange={handleChange}
+            <Field label="ZIP Code (if different from group)" error={errors.zip_code}>
+              <input name="zip_code" value={form.zip_code} onChange={handleChange}
                 placeholder={"Leave blank to use group ZIP (" + (groupZip || "") + ")"}
-                maxLength={5} style={{ ...inputStyle(errors.zip), maxWidth: "200px" }} />
+                maxLength={5} style={{ ...inputStyle(errors.zip_code), maxWidth: "200px" }} />
             </Field>
 
             {errors.submit && (
