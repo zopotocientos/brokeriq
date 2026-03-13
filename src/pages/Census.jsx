@@ -1,6 +1,6 @@
 ﻿// src/pages/Census.jsx
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from "../lib/supabase";
 import EmployeeModal from "../components/EmployeeModal";
 import CensusImport from "../components/CensusImport";
@@ -214,6 +214,11 @@ export default function Census() {
               onMouseLeave={e => e.currentTarget.style.background = "#1B4F8A"}>
               + Add Member
             </button>
+            <Link to={`/groups/${id}/quotes`}>
+  <button style={{ background: '#1B4F8A', color: '#FFFFFF', border: 'none', borderRadius: '6px', padding: '10px 20px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', fontFamily: 'Arial, sans-serif' }}>
+    Create Quote →
+  </button>
+</Link>
           </div>
         </div>
 

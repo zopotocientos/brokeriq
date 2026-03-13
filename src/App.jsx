@@ -4,6 +4,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Groups from './pages/Groups';
 import Census from './pages/Census';
+import Quotes from './pages/Quotes'
 
 
 
@@ -32,6 +33,7 @@ function AppRoutes() {
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="/groups" element={<ProtectedRoute><Groups /></ProtectedRoute>} />
 <Route path="/groups/:id/census" element={<ProtectedRoute><Census /></ProtectedRoute>} />
+<Route path="/groups/:id/quotes" element={<ProtectedRoute><Quotes /></ProtectedRoute>} />
     </Routes>
   )
 }
