@@ -374,7 +374,7 @@ const planList = (plans || []).map(p => ({
   carriers: carrierMap[p.carrier_id] || null
 }))
 
-console.log("planList:", planList); console.log("sample plan:", JSON.stringify(planList[0])); console.log("carrierList:", JSON.stringify(carrierList)); setAllPlans(planList)
+setAllPlans(planList)
 
 const uniqueCarriers = {}
 for (const p of planList) {
@@ -922,6 +922,7 @@ setCarriers(Object.values(uniqueCarriers).filter(Boolean).sort((a, b) => a.name.
     </Layout>
   )
 }
+
 
 
 
